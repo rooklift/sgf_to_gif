@@ -394,8 +394,7 @@ func main() {
 	sgf_bytes, err := ioutil.ReadFile(os.Args[1])
 
 	if err != nil {
-		fmt.Printf("%v\n", err)
-		return
+		panic(fmt.Sprintf("%v", err))
 	}
 
 	root := LoadSGF(string(sgf_bytes))
@@ -533,8 +532,14 @@ func image_xy(x, y int) (int, int) {
 }
 
 func save_gif(path string, g *gif.GIF) {
-	outfile, _ := os.Create(path)
-	gif.EncodeAll(outfile, g)
+	outfile, err := os.Create(path)
+	if err != nil {
+		panic(fmt.Sprintf("%v", err))
+	}
+	err = gif.EncodeAll(outfile, g)
+	if err != nil {
+		panic(fmt.Sprintf("%v", err))
+	}
 }
 
 func circle(c *image.Paletted, index uint8, x, y, radius int) {
