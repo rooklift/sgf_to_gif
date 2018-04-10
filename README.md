@@ -1,6 +1,6 @@
 # sgf_to_gif
 
-* Converts the main line of an SGF file to an animated GIF.
-* Written in Golang, using standard library only.
+Converts the main line of an SGF file to an animated GIF.<br>
+Written in Golang, using standard library only.
 
-    ![Example GIF](https://github.com/fohristiwhirl/sgf_to_gif/blob/master/LS_AG_5.sgf.gif)
+[Example GIF](https://github.com/fohristiwhirl/sgf_to_gif/blob/master/LS_AG_5.sgf.gif)
