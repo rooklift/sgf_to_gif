@@ -12,6 +12,8 @@ import (
 	"strings"
 )
 
+type Colour int
+
 const (
 	EMPTY = Colour(0)
 	BLACK = Colour(1)
@@ -33,8 +35,6 @@ const (
 	B
 	W
 )
-
-type Colour int
 
 // ------------------------------------------------
 
@@ -427,11 +427,15 @@ func frame_from_board(board *Board) *image.Paletted {
 	rect := image.Rect(0, 0, size, size)
 	c := image.NewPaletted(rect, PALETTE)
 
+	// Background...
+
 	for i := 0; i < size; i++ {
 		for j := 0; j < size; j++ {
 			c.SetColorIndex(i, j, BG)
 		}
 	}
+
+	// Vertical lines...
 
 	for x := 0; x < board.Size(); x++ {
 		x1, y1 := image_xy(x, 0)
@@ -444,6 +448,8 @@ func frame_from_board(board *Board) *image.Paletted {
 		}
 	}
 
+	// Horizontal lines...
+
 	for y := 0; y < board.Size(); y++ {
 		x1, y1 := image_xy(0, y)
 		x2, _ := image_xy(board.Size() - 1, y)
@@ -454,6 +460,13 @@ func frame_from_board(board *Board) *image.Paletted {
 			c.SetColorIndex(i, j, B)
 		}
 	}
+
+	// Bottom right point...
+
+	x1, y1 := image_xy(size - 1, size - 1)
+	c.SetColorIndex(x1, y1, B)
+
+	// Stones...
 
 	for x := 0; x < board.Size(); x++ {
 
