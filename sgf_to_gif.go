@@ -426,7 +426,15 @@ func main() {
 
 	out_gif.Delay[len(out_gif.Delay) - 1] = FINAL_DELAY
 
-	save_gif(os.Args[1] + ".gif", &out_gif)
+	var filename string
+
+	if len(os.Args[1]) > 4 && strings.HasSuffix(os.Args[1], ".sgf") {
+		filename = os.Args[1][:len(os.Args[1]) - 4] + ".gif"
+	} else {
+		filename = os.Args[1] + ".gif"
+	}
+
+	save_gif(filename, &out_gif)
 }
 
 func frame_from_board(board *Board) *image.Paletted {
