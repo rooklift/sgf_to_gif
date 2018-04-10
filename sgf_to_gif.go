@@ -475,15 +475,43 @@ func frame_from_board(board *Board) *image.Paletted {
 			x1, y1 := image_xy(x, y)
 
 			if board.State[x][y] == BLACK {
+
 				fcircle(c, B, x1, y1, STONE_WIDTH / 2)
+
 			} else if board.State[x][y] == WHITE {
+
 				fcircle(c, W, x1, y1, STONE_WIDTH / 2)
 				circle(c, B, x1, y1, STONE_WIDTH / 2)
+
+			} else if is_hoshi(x, y, board.Size()) {
+
+				draw_hoshi(c, B, x1, y1)
+
 			}
 		}
 	}
 
 	return c
+}
+
+func is_hoshi(x, y, size int) bool {
+
+	good_x, good_y := false, false
+
+	if size >= 15 || x == y {
+		if x == size / 2 { good_x = true }
+		if y == size / 2 { good_y = true }
+	}
+
+	if size >= 12 {
+		if x == 3 || x + 4 == size { good_x = true }
+		if y == 3 || y + 4 == size { good_y = true }
+	} else {
+		if x == 2 || x + 3 == size { good_x = true }
+		if y == 2 || y + 3 == size { good_y = true }
+	}
+
+	return good_x && good_y
 }
 
 func image_xy(x, y int) (int, int) {
@@ -547,6 +575,13 @@ func fcircle(c *image.Paletted, index uint8, x, y, radius int) {
 			}
 		}
 	}
+}
+
+func draw_hoshi(c *image.Paletted, index uint8, x, y int) {
+	c.SetColorIndex(x - 1, y - 1, index)
+	c.SetColorIndex(x - 1, y + 1, index)
+	c.SetColorIndex(x + 1, y - 1, index)
+	c.SetColorIndex(x + 1, y + 1, index)
 }
 
 func linehorizontal(c *image.Paletted, index uint8, x1, y1, x2 int) {
