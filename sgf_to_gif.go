@@ -3,14 +3,12 @@ package main
 import (
 	"fmt"
 	"image"
-	"image/draw"
 	"image/gif"
-	"image/color/palette"
+	"image/color"
+	"math"
 	"os"
 	"strconv"
 	"strings"
-
-	"github.com/fohristiwhirl/ezcanvas"
 )
 
 const (
@@ -20,6 +18,19 @@ const (
 
 	STONE_WIDTH = 20
 	MARGIN = 5
+	DELAY = 20
+)
+
+var PALETTE = []color.Color{			// These should be in the same order as the constants below...
+	color.RGBA{210, 175, 120, 255},
+	color.Black,
+	color.White,
+}
+
+const (
+	BG = iota
+	B
+	W
 )
 
 type Colour int
@@ -270,6 +281,9 @@ func PointFromString(s string, size int) (Point, bool) {
 
 func load_sgf_tree(sgf string, parent_of_local_root *Node) (*Node, int) {
 
+	// FIXME: this is not unicode aware. Potential problems exist
+	// if a unicode code point contains a meaningful character.
+
 	var root *Node
 	var node *Node
 
@@ -409,9 +423,9 @@ func main() {
 	for {
 		board.UpdateFromNode(node)
 
-		ez_frame := ez_frame_from_board(board)
-		out_gif.Image = append(out_gif.Image, ez_to_paletted(ez_frame))
-		out_gif.Delay = append(out_gif.Delay, 20)
+		frame := frame_from_board(board)
+		out_gif.Image = append(out_gif.Image, frame)
+		out_gif.Delay = append(out_gif.Delay, DELAY)
 
 		if len(node.Children) > 0 {
 			node = node.Children[0]
@@ -423,23 +437,39 @@ func main() {
 	save_gif("foo.gif", &out_gif)
 }
 
-func ez_frame_from_board(board *Board) *ezcanvas.Canvas {
+func frame_from_board(board *Board) *image.Paletted {
 
 	size := (board.Size() * STONE_WIDTH) + (MARGIN * 2)
 
-	c := ezcanvas.NewCanvas(size, size)
-	c.Clear(210, 175, 120)
+	rect := image.Rect(0, 0, size, size)
+	c := image.NewPaletted(rect, PALETTE)
+
+	for i := 0; i < size; i++ {
+		for j := 0; j < size; j++ {
+			c.SetColorIndex(i, j, BG)
+		}
+	}
 
 	for x := 0; x < board.Size(); x++ {
 		x1, y1 := image_xy(x, 0)
-		x2, y2 := image_xy(x, board.Size() - 1)
-		c.Line(0, 0, 0, ezcanvas.SET, x1, y1, x2, y2)
+		_, y2 := image_xy(x, board.Size() - 1)
+
+		i := x1
+
+		for j := y1; j < y2; j++ {
+			c.SetColorIndex(i, j, B)
+		}
 	}
 
 	for y := 0; y < board.Size(); y++ {
 		x1, y1 := image_xy(0, y)
-		x2, y2 := image_xy(board.Size() - 1, y)
-		c.Line(0, 0, 0, ezcanvas.SET, x1, y1, x2, y2)
+		x2, _ := image_xy(board.Size() - 1, y)
+
+		j := y1
+
+		for i := x1; i < x2; i++ {
+			c.SetColorIndex(i, j, B)
+		}
 	}
 
 	for x := 0; x < board.Size(); x++ {
@@ -449,10 +479,10 @@ func ez_frame_from_board(board *Board) *ezcanvas.Canvas {
 			x1, y1 := image_xy(x, y)
 
 			if board.State[x][y] == BLACK {
-				c.Fcircle(0, 0, 0, ezcanvas.SET, x1, y1, STONE_WIDTH / 2)
+				fcircle(c, B, x1, y1, STONE_WIDTH / 2)
 			} else if board.State[x][y] == WHITE {
-				c.Fcircle(255, 255, 255, ezcanvas.SET, x1, y1, STONE_WIDTH / 2)
-				c.Circle(0, 0, 0, ezcanvas.SET, x1, y1, STONE_WIDTH / 2)
+				fcircle(c, W, x1, y1, STONE_WIDTH / 2)
+				circle(c, B, x1, y1, STONE_WIDTH / 2)
 			}
 		}
 	}
@@ -466,14 +496,65 @@ func image_xy(x, y int) (int, int) {
 	return ret_x, ret_y
 }
 
-func ez_to_paletted(c *ezcanvas.Canvas) *image.Paletted {
-	field := c.Field()
-	p := image.NewPaletted(field.Bounds(), palette.Plan9)
-	draw.Draw(p, p.Rect, field, field.Bounds().Min, draw.Over)
-	return p
-}
-
 func save_gif(path string, g *gif.GIF) {
 	outfile, _ := os.Create(path)
 	gif.EncodeAll(outfile, g)
+}
+
+func circle(c *image.Paletted, index uint8, x, y, radius int) {
+
+	// I wrote this algorithm 15 years ago for C and can't remember how it works. But it does.
+
+	var pyth float64
+	var topline bool = true
+	var lastiplusone int
+
+	for j := radius - 1 ; j >= 0 ; j-- {
+		for i := radius - 1 ; i >= 0 ; i-- {
+			pyth = math.Sqrt(math.Pow(float64(i), 2) + math.Pow(float64(j), 2))
+			if (pyth < float64(radius) - 0.5) {
+				if topline {                    // i.e. if we're on the top (and, with mirroring, bottom) lines
+					topline = false
+					linehorizontal(c, index, x - i - 1, y - j - 1, x + i)
+					linehorizontal(c, index, x - i - 1, y + j    , x + i)
+					lastiplusone = i + 1
+				} else {
+					if lastiplusone == i + 1 {
+						c.SetColorIndex(x - i - 1, y - j - 1, index)
+						c.SetColorIndex(x + i    , y - j - 1, index)
+						c.SetColorIndex(x - i - 1, y + j    , index)
+						c.SetColorIndex(x + i    , y + j    , index)
+					} else {
+						linehorizontal(c, index, x - i - 1, y - j - 1, x - lastiplusone - 1)
+						linehorizontal(c, index, x + lastiplusone , y - j - 1, x + i)
+						linehorizontal(c, index, x - i - 1, y + j, x - lastiplusone - 1)
+						linehorizontal(c, index, x + lastiplusone , y + j, x + i)
+						lastiplusone = i + 1
+					}
+				}
+				break
+			}
+		}
+	}
+}
+
+func fcircle(c *image.Paletted, index uint8, x, y, radius int) {
+	var pyth float64;
+
+	for j := radius ; j >= 0 ; j-- {
+		for i := radius ; i >= 0 ; i-- {
+			pyth = math.Sqrt(math.Pow(float64(i), 2) + math.Pow(float64(j), 2));
+			if (pyth < float64(radius) - 0.5) {
+				linehorizontal(c, index, x - i - 1, y - j - 1, x + i)
+				linehorizontal(c, index, x - i - 1, y + j, x + i)
+				break
+			}
+		}
+	}
+}
+
+func linehorizontal(c *image.Paletted, index uint8, x1, y1, x2 int) {
+	for i := x1; i <= x2; i++ {
+		c.SetColorIndex(i, y1, index)
+	}
 }
