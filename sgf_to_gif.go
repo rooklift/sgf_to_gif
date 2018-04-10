@@ -22,6 +22,7 @@ const (
 	STONE_WIDTH = 20
 	MARGIN = 5
 	DELAY = 40
+	FINAL_DELAY = 400
 )
 
 var PALETTE = []color.Color{			// These should be in the same order as the constants below...
@@ -416,6 +417,8 @@ func main() {
 			break
 		}
 	}
+
+	out_gif.Delay[len(out_gif.Delay) - 1] = FINAL_DELAY
 
 	save_gif(os.Args[1] + ".gif", &out_gif)
 }
