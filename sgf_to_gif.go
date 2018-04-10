@@ -12,13 +12,7 @@ import (
 	"strings"
 )
 
-type Colour int
-
 const (
-	EMPTY = Colour(0)
-	BLACK = Colour(1)
-	WHITE = Colour(2)
-
 	STONE_WIDTH = 20
 	MARGIN = 5
 	DELAY = 40
@@ -31,7 +25,7 @@ var PALETTE = []color.Color{			// These should be in the same order as the const
 	color.White,
 }
 
-const (
+const (									// Indexes for the colours above.
 	BG = iota
 	B
 	W
@@ -82,6 +76,14 @@ func (self *Node) GetValue(key string) (value string, ok bool) {
 }
 
 // ------------------------------------------------
+
+type Colour int
+
+const (
+	EMPTY = Colour(iota)
+	BLACK
+	WHITE
+)
 
 type Board struct {
 	State [][]Colour
@@ -207,6 +209,8 @@ func (self *Board) UpdateFromNode(node *Node) {
 	}
 }
 
+/*
+
 func (self *Board) Dump() {
 
 	fmt.Println()
@@ -231,6 +235,8 @@ func (self *Board) Dump() {
 
 	fmt.Println()
 }
+
+*/
 
 // ------------------------------------------------
 
