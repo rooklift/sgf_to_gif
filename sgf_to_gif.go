@@ -5,6 +5,7 @@ import (
 	"image"
 	"image/gif"
 	"image/color"
+	"io/ioutil"
 	"math"
 	"os"
 	"strconv"
@@ -18,7 +19,7 @@ const (
 
 	STONE_WIDTH = 20
 	MARGIN = 5
-	DELAY = 20
+	DELAY = 40
 )
 
 var PALETTE = []color.Color{			// These should be in the same order as the constants below...
@@ -378,37 +379,19 @@ func LoadSGF(sgf string) *Node {
 
 func main() {
 
-	const TEST = `
-		(;SZ[19]FF[3]
-		PW[Inagaki Kanetaro]
-		PB[Saka Hakusuisanjin]
-		EV[Teaching game]
-		DT[Published 1921]
-		OH[3]
-		HA[3]
-		RE[W+5]
-		US[GoGoD95]
-		AB[dp][pd][dd]
-		;W[qp];B[oq];W[mq];B[mp];W[lp];B[np];W[kq];B[pn];W[qn];B[qm];W[pm];B[qo]
-		;W[rn];B[on];W[ro];B[pl];W[ed];B[ee];W[fe];B[om];W[dc];B[ec];W[fd];B[cc]
-		;W[db];B[cb];W[de];B[cd];W[eb];B[cf];W[ef];B[kc];W[cn];B[ci];W[fq];B[fp]
-		;W[gp];B[fo];W[eq];B[dq];W[bo];B[cl];W[dl];B[gq];W[gr];B[hq];W[hr];B[iq]
-		;W[ir];B[dr];W[ck];B[ho];W[nc];B[gb];W[gc];B[hb];W[qf];B[pf];W[pg];B[qe]
-		;W[of];B[pe];W[ne];B[qg];W[ph];B[md];W[nd];B[pb];W[lb];B[id];W[jb];B[kb]
-		;W[jc];B[jd];W[ka];B[ic];W[kd];B[ke];W[lc];B[jf];W[jh];B[ig];W[fi];B[bk]
-		;W[bl];B[bj];W[hi];B[kg];W[rf];B[rg];W[rh];B[re];W[qh];B[sf];W[gn];B[go]
-		;W[qr];B[lo];W[ko];B[ln];W[kn];B[lm];W[lf];B[kh];W[bq];B[ep];W[fr];B[br]
-		;W[le];B[ji];W[kj];B[ih];W[hf];B[fb];W[fc];B[jj];W[kl];B[gh];W[fh];B[cm]
-		;W[en];B[bm];W[jk];B[hj];W[gi];B[lj];W[mk];B[ml];W[nl];B[nk];W[ll];B[mm]
-		;W[mj];B[nj];W[ni];B[oi];W[mi];B[fa];W[ca];B[ba];W[da];B[ea];W[ec];B[ib]
-		;W[ce];B[be];W[bf];B[df];W[ee];B[bg];W[bd];B[af];W[bb];B[dn];W[do];B[dm]
-		;W[eo];B[fl];W[em];B[el];W[gm];B[hl];W[in];B[hn];W[hm];B[im];W[il];B[gl]
-		;W[jm];B[cp];W[co];B[bp];W[ap];B[ar];W[ok];B[oj];W[pk];B[qk];W[pj];B[ol]
-		;W[or]
-		)
-	`
+	if len(os.Args) < 2 {
+		fmt.Printf("Usage: %s <filename>\n", os.Args[0])
+		return
+	}
 
-	root := LoadSGF(TEST)
+	sgf_bytes, err := ioutil.ReadFile(os.Args[1])
+
+	if err != nil {
+		fmt.Printf("%v\n", err)
+		return
+	}
+
+	root := LoadSGF(string(sgf_bytes))
 
 	size_string, _ := root.GetValue("SZ")
 	size, _ := strconv.Atoi(size_string)
@@ -434,7 +417,7 @@ func main() {
 		}
 	}
 
-	save_gif("foo.gif", &out_gif)
+	save_gif(os.Args[1] + ".gif", &out_gif)
 }
 
 func frame_from_board(board *Board) *image.Paletted {
