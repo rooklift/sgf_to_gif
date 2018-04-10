@@ -446,7 +446,7 @@ func frame_from_board(board *Board) *image.Paletted {
 
 		i := x1
 
-		for j := y1; j < y2; j++ {
+		for j := y1; j <= y2; j++ {
 			c.SetColorIndex(i, j, B)
 		}
 	}
@@ -459,15 +459,10 @@ func frame_from_board(board *Board) *image.Paletted {
 
 		j := y1
 
-		for i := x1; i < x2; i++ {
+		for i := x1; i <= x2; i++ {
 			c.SetColorIndex(i, j, B)
 		}
 	}
-
-	// Bottom right point...
-
-	x1, y1 := image_xy(size - 1, size - 1)
-	c.SetColorIndex(x1, y1, B)
 
 	// Stones...
 
