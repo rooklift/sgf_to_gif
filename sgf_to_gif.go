@@ -401,12 +401,12 @@ func LoadSGF(sgf string) *Node {
 
 func main() {
 
-	// Find which of the arguments is the file...
-
 	if len(os.Args) < 2 {
 		fmt.Printf("Usage: %s <options> <filename>\n", filepath.Base(os.Args[0]))
 		return
 	}
+
+	// Filename should be at end of args...
 
 	infilename := os.Args[len(os.Args) - 1]
 
