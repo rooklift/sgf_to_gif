@@ -404,7 +404,6 @@ func main() {
 
 	board := NewBoard(size)
 	prev_board := NewBoard(size)
-	first_update := true
 
 	node := root
 
@@ -420,24 +419,19 @@ func main() {
 	y_offset := MARGIN		// actually starts in the image.
 
 	out_gif := gif.GIF{Config: config}
-	out_gif.Image = append(out_gif.Image, first_frame(board.Size(), x_offset, y_offset, image_width, image_height))
 
 	for {
 
 		board.UpdateFromNode(node)
 
-		if first_update == false {						// First time here, prev_board gets kept as an empty board
-			prev_board.UpdateFromNode(node.Parent)
+		var frame *image.Paletted
+
+		if len(out_gif.Image) == 0 {
+			frame = first_frame(board, x_offset, y_offset, image_width, image_height)
 		} else {
-			first_update = false
+			prev_board.UpdateFromNode(node.Parent)
+			frame = next_frame(board, prev_board, x_offset, y_offset)
 		}
-
-		frame := frame_from_board(board, prev_board)
-
-		frame.Rect.Min.X += x_offset
-		frame.Rect.Min.Y += y_offset
-		frame.Rect.Max.X += x_offset
-		frame.Rect.Max.Y += y_offset
 
 		out_gif.Image = append(out_gif.Image, frame)
 
@@ -468,9 +462,11 @@ func main() {
 	save_gif(filename, &out_gif)
 }
 
-func draw_empty_board(c *image.Paletted, board_size, x_offset, y_offset int) {
+func draw_board(c *image.Paletted, board *Board, x_offset, y_offset int) {
 
-	// Background...
+	// Fill the entire canvas with background colour, then
+	// draw the board. We don't care about the boundaries,
+	// i.e. we will often be outside them. Whatever.
 
 	for i := c.Rect.Min.X; i < c.Rect.Max.X; i++ {
 		for j := c.Rect.Min.Y; j < c.Rect.Max.Y; j++ {
@@ -480,9 +476,9 @@ func draw_empty_board(c *image.Paletted, board_size, x_offset, y_offset int) {
 
 	// Vertical lines...
 
-	for x := 0; x < board_size; x++ {
+	for x := 0; x < board.Size(); x++ {
 		x1, y1 := image_xy(x, 0)
-		_, y2 := image_xy(x, board_size - 1)
+		_, y2 := image_xy(x, board.Size() - 1)
 
 		for j := y1; j <= y2; j++ {
 			c.SetColorIndex(x1 + x_offset, j + y_offset, B)
@@ -491,9 +487,9 @@ func draw_empty_board(c *image.Paletted, board_size, x_offset, y_offset int) {
 
 	// Horizontal lines...
 
-	for y := 0; y < board_size; y++ {
+	for y := 0; y < board.Size(); y++ {
 		x1, y1 := image_xy(0, y)
-		x2, _ := image_xy(board_size - 1, y)
+		x2, _ := image_xy(board.Size() - 1, y)
 
 		for i := x1; i <= x2; i++ {
 			c.SetColorIndex(i + x_offset, y1 + y_offset, B)
@@ -502,49 +498,14 @@ func draw_empty_board(c *image.Paletted, board_size, x_offset, y_offset int) {
 
 	// Hoshi...
 
-	for x := 0; x < board_size; x++ {
-		for y := 0; y < board_size; y++ {
-			if is_hoshi(x, y, board_size) {
+	for x := 0; x < board.Size(); x++ {
+		for y := 0; y < board.Size(); y++ {
+			if is_hoshi(x, y, board.Size()) {
 				x1, y1 := image_xy(x, y)
-				draw_hoshi(c, B, x1 + x_offset, y1 + y_offset)
+				hoshi(c, B, x1 + x_offset, y1 + y_offset)
 			}
 		}
 	}
-}
-
-func first_frame(board_size, x_offset, y_offset, image_width, image_height int) *image.Paletted {
-
-	// The first frame must be the size of the whole image.
-
-	rect := image.Rect(0, 0, image_width, image_height)
-	c := image.NewPaletted(rect, PALETTE)
-	draw_empty_board(c, board_size, x_offset, y_offset)
-	return c
-}
-
-func frame_from_board(board *Board, previous *Board) *image.Paletted {
-
-	var logical_left, logical_top, logical_right, logical_bottom int
-
-	if previous == nil {
-		logical_left, logical_top, logical_right, logical_bottom = 0, 0, board.Size() - 1, board.Size() - 1
-	} else {
-		logical_left, logical_top, logical_right, logical_bottom = relevant_region(board, previous)
-	}
-
-	// Our frame only needs to contain the rect that actually changes.
-	// Note that all our coordinates in this function assume no margin
-	// or offset of the board in the image; the caller fixes that.
-
-	rect := image.Rect(
-		logical_left * STONE_WIDTH,
-		logical_top * STONE_WIDTH,
-		(logical_right + 1) * STONE_WIDTH,
-		(logical_bottom + 1) * STONE_WIDTH,
-	)
-
-	c := image.NewPaletted(rect, PALETTE)
-	draw_empty_board(c, board.Size(), 0, 0)		// Offset == [0, 0] here, as noted above.
 
 	// Stones...
 
@@ -556,23 +517,56 @@ func frame_from_board(board *Board, previous *Board) *image.Paletted {
 
 			if board.State[x][y] == BLACK {
 
-				fcircle(c, B, x1, y1, STONE_WIDTH / 2)
+				fcircle(c, B, x1 + x_offset, y1 + y_offset, STONE_WIDTH / 2)
 
 			} else if board.State[x][y] == WHITE {
 
-				fcircle(c, W, x1, y1, STONE_WIDTH / 2)
-				circle(c, B, x1, y1, STONE_WIDTH / 2)
+				fcircle(c, W, x1 + x_offset, y1 + y_offset, STONE_WIDTH / 2)
+				circle(c, B, x1 + x_offset, y1 + y_offset, STONE_WIDTH / 2)
 
 			}
 		}
 	}
+}
+
+func first_frame(board *Board, x_offset, y_offset, image_width, image_height int) *image.Paletted {
+
+	// The first frame must be the size of the whole image.
+
+	rect := image.Rect(0, 0, image_width, image_height)
+	c := image.NewPaletted(rect, PALETTE)
+	draw_board(c, board, x_offset, y_offset)
+	return c
+}
+
+func next_frame(board *Board, previous *Board, x_offset, y_offset int) *image.Paletted {
+
+	var logical_left, logical_top, logical_right, logical_bottom int
+
+	if previous == nil {
+		logical_left, logical_top, logical_right, logical_bottom = 0, 0, board.Size() - 1, board.Size() - 1
+	} else {
+		logical_left, logical_top, logical_right, logical_bottom = relevant_region(board, previous)
+	}
+
+	// Our frame only needs to contain the rect that actually changes.
+
+	rect := image.Rect(
+		logical_left * STONE_WIDTH + x_offset,
+		logical_top * STONE_WIDTH + y_offset,
+		(logical_right + 1) * STONE_WIDTH + x_offset,
+		(logical_bottom + 1) * STONE_WIDTH + y_offset,
+	)
+
+	c := image.NewPaletted(rect, PALETTE)
+	draw_board(c, board, x_offset, y_offset)
 
 	return c
 }
 
 func relevant_region(one, two *Board) (int, int, int, int) {
 
-	// Returns an INCLUSIVE, logical rectangle.
+	// Returns an INCLUSIVE, logical rectangle (game coords).
 	// For most nodes (with a single move and no captures),
 	// it will be the case that top == bottom and left == right.
 
@@ -691,7 +685,7 @@ func fcircle(c *image.Paletted, index uint8, x, y, radius int) {
 	}
 }
 
-func draw_hoshi(c *image.Paletted, index uint8, x, y int) {
+func hoshi(c *image.Paletted, index uint8, x, y int) {
 	c.SetColorIndex(x - 1, y - 1, index)
 	c.SetColorIndex(x - 1, y + 1, index)
 	c.SetColorIndex(x + 1, y - 1, index)
