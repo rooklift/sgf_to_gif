@@ -544,7 +544,7 @@ func frame_from_board(board *Board, previous *Board) *image.Paletted {
 	)
 
 	c := image.NewPaletted(rect, PALETTE)
-	draw_empty_board(c, board.Size(), 0, 0)
+	draw_empty_board(c, board.Size(), 0, 0)		// Offset == [0, 0] here, as noted above.
 
 	// Stones...
 
@@ -621,7 +621,7 @@ func is_hoshi(x, y, size int) bool {
 
 func image_xy(x, y int) (int, int) {
 
-	// Assumes the image has no margins or anything. This is fine.
+	// Result has no margins or anything. This is fine.
 
 	ret_x := (x * STONE_WIDTH) + (STONE_WIDTH / 2)
 	ret_y := (y * STONE_WIDTH) + (STONE_WIDTH / 2)
