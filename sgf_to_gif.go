@@ -21,7 +21,6 @@ type Config struct {
 	Margin		int
 	Delay		int
 	FinalDelay	int
-	NoNumbers	bool
 	NoCoords	bool
 }
 
@@ -32,7 +31,6 @@ func init() {
 	flag.IntVar(&CONFIG.Margin, "m", 5, "outer margin")
 	flag.IntVar(&CONFIG.Delay, "d", 40, "delay")
 	flag.IntVar(&CONFIG.FinalDelay, "f", 400, "final delay")
-	flag.BoolVar(&CONFIG.NoNumbers, "n", false, "disable move numbers")
 	flag.BoolVar(&CONFIG.NoCoords, "c", false, "disable coordinates")
 	flag.Parse()
 }
@@ -195,9 +193,9 @@ func (self *Board) DestroyGroup(x, y int) {
 	}
 }
 
-func (self *Board) UpdateFromNode(node *Node) int {
+func (self *Board) UpdateFromNode(node *Node) {
 
-	moves_made := 0
+	// Add stones: AB / AW / AE
 
 	for _, foo := range node.Props["AB"] {
 		point, ok := PointFromString(foo, self.Size())
@@ -214,53 +212,18 @@ func (self *Board) UpdateFromNode(node *Node) int {
 		if ok { self.State[point.X][point.Y] = EMPTY }
 	}
 
+	// Play move: B / W
+
 	for _, foo := range node.Props["B"] {
 		point, ok := PointFromString(foo, self.Size())
-		if ok {
-			self.PlayMove(BLACK, point.X, point.Y)
-		}
-		moves_made++		// Even if not ok; passes count.
+		if ok { self.PlayMove(BLACK, point.X, point.Y) }
 	}
 
 	for _, foo := range node.Props["W"] {
 		point, ok := PointFromString(foo, self.Size())
-		if ok {
-			self.PlayMove(WHITE, point.X, point.Y)
-		}
-		moves_made++		// Even if not ok; passes count.
+		if ok { self.PlayMove(WHITE, point.X, point.Y) }
 	}
-
-	return moves_made
 }
-
-/*
-
-func (self *Board) Dump() {
-
-	fmt.Println()
-
-	for y := 0; y < self.Size(); y++ {
-
-		fmt.Printf("  ")
-
-		for x := 0; x < self.Size(); x++ {
-			switch self.State[x][y] {
-			case EMPTY:
-				fmt.Printf(". ")
-			case BLACK:
-				fmt.Printf("X ")
-			case WHITE:
-				fmt.Printf("O ")
-			}
-		}
-
-		fmt.Printf("\n")
-	}
-
-	fmt.Println()
-}
-
-*/
 
 // ------------------------------------------------
 
@@ -441,8 +404,8 @@ func main() {
 
 	node := root
 
-	image_width := CONFIG.Margin + board.Size() * CONFIG.StoneWidth + CONFIG.Margin
-	image_height := CONFIG.Margin + board.Size() * CONFIG.StoneWidth + CONFIG.Margin
+	image_width := CONFIG.Margin + (board.Size() * CONFIG.StoneWidth) + CONFIG.Margin
+	image_height := CONFIG.Margin + (board.Size() * CONFIG.StoneWidth) + CONFIG.Margin
 
 	if CONFIG.NoCoords == false {
 		image_height += CONFIG.StoneWidth
