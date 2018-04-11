@@ -428,19 +428,25 @@ func main() {
 	out_gif := gif.GIF{Config: gif_config}
 
 	for {
-
 		board.UpdateFromNode(node)
 
-		var frame *image.Paletted
+		var canvas *image.Paletted
 
 		if len(out_gif.Image) == 0 {
-			frame = first_frame(board, x_offset, y_offset, image_width, image_height)
+
+			canvas = full_canvas(image_width, image_height)
+			draw_board(canvas, board, x_offset, y_offset)
+			if CONFIG.NoCoords == false { draw_coords(canvas, board, x_offset, y_offset) }
+
 		} else {
+
 			prev_board.UpdateFromNode(node.Parent)
-			frame = next_frame(board, prev_board, x_offset, y_offset)
+			canvas = partial_canvas(board, prev_board, x_offset, y_offset)
+			draw_board(canvas, board, x_offset, y_offset)
+
 		}
 
-		out_gif.Image = append(out_gif.Image, frame)
+		out_gif.Image = append(out_gif.Image, canvas)
 
 		if len(node.Children) > 0 {
 			node = node.Children[0]
@@ -565,27 +571,16 @@ func draw_coords(c *image.Paletted, board *Board, x_offset, y_offset int) {
 	}
 }
 
-func first_frame(board *Board, x_offset, y_offset, image_width, image_height int) *image.Paletted {
-
-	// The first frame must be the size of the whole image.
-
+func full_canvas(image_width, image_height int) *image.Paletted {
 	rect := image.Rect(0, 0, image_width, image_height)
-	c := image.NewPaletted(rect, PALETTE)
-
-	draw_board(c, board, x_offset, y_offset)		// Must happen first since it clears everything.
-
-	if CONFIG.NoCoords == false {
-		draw_coords(c, board, x_offset, y_offset)
-	}
-
-	return c
+	return image.NewPaletted(rect, PALETTE)
 }
 
-func next_frame(board *Board, previous *Board, x_offset, y_offset int) *image.Paletted {
+func partial_canvas(board *Board, previous *Board, x_offset, y_offset int) *image.Paletted {
+
+	// Given 2 boards, return a canvas for the part of the image that's getting updated.
 
 	logical_left, logical_top, logical_right, logical_bottom := relevant_region(board, previous)
-
-	// Our frame only needs to contain the rect that actually changes.
 
 	rect := image.Rect(
 		logical_left * CONFIG.StoneWidth + x_offset,
@@ -594,10 +589,7 @@ func next_frame(board *Board, previous *Board, x_offset, y_offset int) *image.Pa
 		(logical_bottom + 1) * CONFIG.StoneWidth + y_offset,
 	)
 
-	c := image.NewPaletted(rect, PALETTE)
-	draw_board(c, board, x_offset, y_offset)
-
-	return c
+	return image.NewPaletted(rect, PALETTE)
 }
 
 func relevant_region(one, two *Board) (int, int, int, int) {
