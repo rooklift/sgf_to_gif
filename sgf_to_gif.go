@@ -367,7 +367,7 @@ func load_sgf_tree(sgf string, parent_of_local_root *Node) (*Node, int) {
 		panic("load_sgf_tree: root == nil at function end")
 	}
 
-	return root, len(sgf)				// Return characters read.
+	return root, len(sgf)			// Return characters read.
 }
 
 func LoadSGF(sgf string) *Node {
@@ -468,20 +468,7 @@ func main() {
 	save_gif(filename, &out_gif)
 }
 
-func first_frame(board_size, x_offset, y_offset, image_width, image_height int) *image.Paletted {
-
-	// The first frame must be the size of the whole image.
-
-	rect := image.Rect(0, 0, image_width, image_height)
-	c := image.NewPaletted(rect, PALETTE)
-
-	// Background...
-
-	for i := 0; i < image_width; i++ {
-		for j := 0; j < image_height; j++ {
-			c.SetColorIndex(i, j, BG)
-		}
-	}
+func draw_empty_board(c *image.Paletted, board_size, x_offset, y_offset int) {
 
 	// Vertical lines...
 
@@ -515,13 +502,29 @@ func first_frame(board_size, x_offset, y_offset, image_width, image_height int) 
 			}
 		}
 	}
+}
+
+func first_frame(board_size, x_offset, y_offset, image_width, image_height int) *image.Paletted {
+
+	// The first frame must be the size of the whole image.
+
+	rect := image.Rect(0, 0, image_width, image_height)
+	c := image.NewPaletted(rect, PALETTE)
+
+	// Background...
+
+	for i := 0; i < image_width; i++ {
+		for j := 0; j < image_height; j++ {
+			c.SetColorIndex(i, j, BG)
+		}
+	}
+
+	draw_empty_board(c, board_size, x_offset, y_offset)
 
 	return c
 }
 
 func frame_from_board(board *Board, previous *Board) *image.Paletted {
-
-	full_frame_size := board.Size() * STONE_WIDTH		// No margins / offsets etc
 
 	var logical_left, logical_top, logical_right, logical_bottom int
 
@@ -531,6 +534,10 @@ func frame_from_board(board *Board, previous *Board) *image.Paletted {
 		logical_left, logical_top, logical_right, logical_bottom = relevant_region(board, previous)
 	}
 
+	// Our frame only needs to contain the rect that actually changes.
+	// Note that all our coordinates in this function assume no margin
+	// or offset of the board in the image; the caller fixes that.
+
 	rect := image.Rect(
 		logical_left * STONE_WIDTH,
 		logical_top * STONE_WIDTH,
@@ -539,40 +546,7 @@ func frame_from_board(board *Board, previous *Board) *image.Paletted {
 	)
 
 	c := image.NewPaletted(rect, PALETTE)
-
-	// Background...
-
-	for i := 0; i < full_frame_size; i++ {
-		for j := 0; j < full_frame_size; j++ {
-			c.SetColorIndex(i, j, BG)
-		}
-	}
-
-	// Vertical lines...
-
-	for x := 0; x < board.Size(); x++ {
-		x1, y1 := image_xy(x, 0)
-		_, y2 := image_xy(x, board.Size() - 1)
-
-		i := x1
-
-		for j := y1; j <= y2; j++ {
-			c.SetColorIndex(i, j, B)
-		}
-	}
-
-	// Horizontal lines...
-
-	for y := 0; y < board.Size(); y++ {
-		x1, y1 := image_xy(0, y)
-		x2, _ := image_xy(board.Size() - 1, y)
-
-		j := y1
-
-		for i := x1; i <= x2; i++ {
-			c.SetColorIndex(i, j, B)
-		}
-	}
+	draw_empty_board(c, board.Size(), 0, 0)
 
 	// Stones...
 
@@ -590,10 +564,6 @@ func frame_from_board(board *Board, previous *Board) *image.Paletted {
 
 				fcircle(c, W, x1, y1, STONE_WIDTH / 2)
 				circle(c, B, x1, y1, STONE_WIDTH / 2)
-
-			} else if is_hoshi(x, y, board.Size()) {
-
-				draw_hoshi(c, B, x1, y1)
 
 			}
 		}
