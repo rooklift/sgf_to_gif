@@ -368,7 +368,7 @@ func load_sgf_tree(sgf string, parent_of_local_root *Node) (*Node, int) {
 		panic("load_sgf_tree: root == nil at function end")
 	}
 
-	return root, i + 1
+	return root, i		// Return characters read.
 }
 
 func LoadSGF(sgf string) *Node {
