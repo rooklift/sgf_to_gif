@@ -541,13 +541,7 @@ func first_frame(board *Board, x_offset, y_offset, image_width, image_height int
 
 func next_frame(board *Board, previous *Board, x_offset, y_offset int) *image.Paletted {
 
-	var logical_left, logical_top, logical_right, logical_bottom int
-
-	if previous == nil {
-		logical_left, logical_top, logical_right, logical_bottom = 0, 0, board.Size() - 1, board.Size() - 1
-	} else {
-		logical_left, logical_top, logical_right, logical_bottom = relevant_region(board, previous)
-	}
+	logical_left, logical_top, logical_right, logical_bottom := relevant_region(board, previous)
 
 	// Our frame only needs to contain the rect that actually changes.
 
