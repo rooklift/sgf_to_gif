@@ -389,7 +389,6 @@ func Points(c string) []Point {
 	var ret []Point
 
 	width := 0
-	height := 0
 
 	for i := 0; i < len(c); i++ {
 
@@ -400,11 +399,7 @@ func Points(c string) []Point {
 
 		widest_line := 0
 
-		lines := strings.Split(raw, "\n")[1:]
-
-		if len(lines) > height {
-			height = len(lines)
-		}
+		lines := strings.Split(raw, "\n")
 
 		for y, line := range lines {
 
@@ -424,7 +419,7 @@ func Points(c string) []Point {
 
 	for i := 0; i < len(ret); i++ {
 		ret[i].X -= width / 2
-		ret[i].Y -= height / 2 - 1
+		ret[i].Y -= 5					// Hardcoded based on the actual size of the chars
 	}
 
 	return ret
