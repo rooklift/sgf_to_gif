@@ -21,6 +21,7 @@ type Config struct {
 	Margin		int
 	Delay		int
 	FinalDelay	int
+	NoNumbers	bool
 	NoCoords	bool
 }
 
@@ -31,6 +32,7 @@ func init() {
 	flag.IntVar(&CONFIG.Margin, "m", 5, "outer margin")
 	flag.IntVar(&CONFIG.Delay, "d", 40, "delay")
 	flag.IntVar(&CONFIG.FinalDelay, "f", 400, "final delay")
+	flag.BoolVar(&CONFIG.NoNumbers, "n", false, "disable move numbers")
 	flag.BoolVar(&CONFIG.NoCoords, "c", false, "disable coordinates")
 	flag.Parse()
 }
@@ -193,7 +195,9 @@ func (self *Board) DestroyGroup(x, y int) {
 	}
 }
 
-func (self *Board) UpdateFromNode(node *Node) {
+func (self *Board) UpdateFromNode(node *Node) int {
+
+	moves_made := 0
 
 	for _, foo := range node.Props["AB"] {
 		point, ok := PointFromString(foo, self.Size())
@@ -215,6 +219,7 @@ func (self *Board) UpdateFromNode(node *Node) {
 		if ok {
 			self.PlayMove(BLACK, point.X, point.Y)
 		}
+		moves_made++		// Even if not ok; passes count.
 	}
 
 	for _, foo := range node.Props["W"] {
@@ -222,7 +227,10 @@ func (self *Board) UpdateFromNode(node *Node) {
 		if ok {
 			self.PlayMove(WHITE, point.X, point.Y)
 		}
+		moves_made++		// Even if not ok; passes count.
 	}
+
+	return moves_made
 }
 
 /*
@@ -562,7 +570,7 @@ func draw_board(c *image.Paletted, board *Board, x_offset, y_offset int) {
 
 func draw_coords(c *image.Paletted, board *Board, x_offset, y_offset int) {
 
-	// FIXME: fail if size > 25
+	// FIXME: fail gracefully if size > 25
 
 	letters := "ABCDEFGHJKLMNOPQRSTUVWXYZ"
 
@@ -595,7 +603,8 @@ func first_frame(board *Board, x_offset, y_offset, image_width, image_height int
 
 	rect := image.Rect(0, 0, image_width, image_height)
 	c := image.NewPaletted(rect, PALETTE)
-	draw_board(c, board, x_offset, y_offset)
+
+	draw_board(c, board, x_offset, y_offset)		// Must happen first since it clears everything.
 
 	if CONFIG.NoCoords == false {
 		draw_coords(c, board, x_offset, y_offset)
