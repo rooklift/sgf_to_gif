@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"image"
 	"image/gif"
@@ -8,16 +9,31 @@ import (
 	"io/ioutil"
 	"math"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
+
+	"./chars"
 )
 
-const (
-	STONE_WIDTH = 20
-	MARGIN = 5
-	DELAY = 40
-	FINAL_DELAY = 400
-)
+type Config struct {
+	StoneWidth	int
+	Margin		int
+	Delay		int
+	FinalDelay	int
+	NoCoords	bool
+}
+
+var CONFIG Config
+
+func init() {
+	flag.IntVar(&CONFIG.StoneWidth, "s", 20, "stone width")
+	flag.IntVar(&CONFIG.Margin, "m", 5, "outer margin")
+	flag.IntVar(&CONFIG.Delay, "d", 40, "delay")
+	flag.IntVar(&CONFIG.FinalDelay, "f", 400, "final delay")
+	flag.BoolVar(&CONFIG.NoCoords, "c", false, "disable coordinates")
+	flag.Parse()
+}
 
 var PALETTE = []color.Color{			// These should be in the same order as the constants below...
 	color.RGBA{210, 175, 120, 255},
@@ -385,12 +401,22 @@ func LoadSGF(sgf string) *Node {
 
 func main() {
 
+	// Find which of the arguments is the file...
+
 	if len(os.Args) < 2 {
-		fmt.Printf("Usage: %s <filename>\n", os.Args[0])
+		fmt.Printf("Usage: %s <options> <filename>\n", filepath.Base(os.Args[0]))
 		return
 	}
 
-	sgf_bytes, err := ioutil.ReadFile(os.Args[1])
+	infilename := os.Args[len(os.Args) - 1]
+
+	if _, err := os.Stat(infilename); err != nil {
+		fmt.Printf("File %s doesn't exist.\n", infilename)
+		fmt.Printf("Usage: %s <options> <filename>\n", filepath.Base(os.Args[0]))
+		return
+	}
+
+	sgf_bytes, err := ioutil.ReadFile(infilename)
 
 	if err != nil {
 		panic(fmt.Sprintf("%v", err))
@@ -407,18 +433,23 @@ func main() {
 
 	node := root
 
-	image_width := MARGIN + board.Size() * STONE_WIDTH + MARGIN
-	image_height := MARGIN + board.Size() * STONE_WIDTH + MARGIN
+	image_width := CONFIG.Margin + board.Size() * CONFIG.StoneWidth + CONFIG.Margin
+	image_height := CONFIG.Margin + board.Size() * CONFIG.StoneWidth + CONFIG.Margin
 
-	config := image.Config{
+	if CONFIG.NoCoords == false {
+		image_height += CONFIG.StoneWidth
+		image_width += CONFIG.StoneWidth
+	}
+
+	gif_config := image.Config{
 		Width: image_width,
 		Height: image_height,
 	}
 
-	x_offset := MARGIN		// Where the changeable part
-	y_offset := MARGIN		// actually starts in the image.
+	x_offset := CONFIG.Margin		// Where the changeable part
+	y_offset := CONFIG.Margin		// actually starts in the image.
 
-	out_gif := gif.GIF{Config: config}
+	out_gif := gif.GIF{Config: gif_config}
 
 	for {
 
@@ -445,18 +476,18 @@ func main() {
 	// Fix up some stuff and save...
 
 	for i := 0; i < len(out_gif.Image); i++ {
-		out_gif.Delay = append(out_gif.Delay, DELAY)
+		out_gif.Delay = append(out_gif.Delay, CONFIG.Delay)
 		out_gif.Disposal = append(out_gif.Disposal, gif.DisposalNone)
 	}
 
-	out_gif.Delay[len(out_gif.Delay) - 1] = FINAL_DELAY
+	out_gif.Delay[len(out_gif.Delay) - 1] = CONFIG.FinalDelay
 
 	var filename string
 
-	if len(os.Args[1]) > 4 && strings.HasSuffix(os.Args[1], ".sgf") {
-		filename = os.Args[1][:len(os.Args[1]) - 4] + ".gif"
+	if len(infilename) > 4 && strings.HasSuffix(infilename, ".sgf") {
+		filename = infilename[:len(infilename) - 4] + ".gif"
 	} else {
-		filename = os.Args[1] + ".gif"
+		filename = infilename + ".gif"
 	}
 
 	save_gif(filename, &out_gif)
@@ -517,14 +548,43 @@ func draw_board(c *image.Paletted, board *Board, x_offset, y_offset int) {
 
 			if board.State[x][y] == BLACK {
 
-				fcircle(c, B, x1 + x_offset, y1 + y_offset, STONE_WIDTH / 2)
+				fcircle(c, B, x1 + x_offset, y1 + y_offset, CONFIG.StoneWidth / 2)
 
 			} else if board.State[x][y] == WHITE {
 
-				fcircle(c, W, x1 + x_offset, y1 + y_offset, STONE_WIDTH / 2)
-				circle(c, B, x1 + x_offset, y1 + y_offset, STONE_WIDTH / 2)
+				fcircle(c, W, x1 + x_offset, y1 + y_offset, CONFIG.StoneWidth / 2)
+				circle(c, B, x1 + x_offset, y1 + y_offset, CONFIG.StoneWidth / 2)
 
 			}
+		}
+	}
+}
+
+func draw_coords(c *image.Paletted, board *Board, x_offset, y_offset int) {
+
+	// FIXME: fail if size > 25
+
+	letters := "ABCDEFGHJKLMNOPQRSTUVWXYZ"
+
+	for x := 0; x < board.Size(); x++ {
+
+		x1, y1 := image_xy(x, board.Size())
+		s := string(letters[x])
+		points := chars.Points(s)
+
+		for _, point := range points {
+			c.SetColorIndex(x1 + point.X + x_offset, y1 + point.Y + y_offset, B)
+		}
+	}
+
+	for y := 0; y < board.Size(); y++ {
+
+		x1, y1 := image_xy(board.Size(), board.Size() - y - 1)
+		s := fmt.Sprintf("%d", y + 1)
+		points := chars.Points(s)
+
+		for _, point := range points {
+			c.SetColorIndex(x1 + point.X + x_offset, y1 + point.Y + y_offset, B)
 		}
 	}
 }
@@ -536,6 +596,11 @@ func first_frame(board *Board, x_offset, y_offset, image_width, image_height int
 	rect := image.Rect(0, 0, image_width, image_height)
 	c := image.NewPaletted(rect, PALETTE)
 	draw_board(c, board, x_offset, y_offset)
+
+	if CONFIG.NoCoords == false {
+		draw_coords(c, board, x_offset, y_offset)
+	}
+
 	return c
 }
 
@@ -546,10 +611,10 @@ func next_frame(board *Board, previous *Board, x_offset, y_offset int) *image.Pa
 	// Our frame only needs to contain the rect that actually changes.
 
 	rect := image.Rect(
-		logical_left * STONE_WIDTH + x_offset,
-		logical_top * STONE_WIDTH + y_offset,
-		(logical_right + 1) * STONE_WIDTH + x_offset,
-		(logical_bottom + 1) * STONE_WIDTH + y_offset,
+		logical_left * CONFIG.StoneWidth + x_offset,
+		logical_top * CONFIG.StoneWidth + y_offset,
+		(logical_right + 1) * CONFIG.StoneWidth + x_offset,
+		(logical_bottom + 1) * CONFIG.StoneWidth + y_offset,
 	)
 
 	c := image.NewPaletted(rect, PALETTE)
@@ -611,8 +676,8 @@ func image_xy(x, y int) (int, int) {
 
 	// Result has no margins or anything. This is fine.
 
-	ret_x := (x * STONE_WIDTH) + (STONE_WIDTH / 2)
-	ret_y := (y * STONE_WIDTH) + (STONE_WIDTH / 2)
+	ret_x := (x * CONFIG.StoneWidth) + (CONFIG.StoneWidth / 2)
+	ret_y := (y * CONFIG.StoneWidth) + (CONFIG.StoneWidth / 2)
 	return ret_x, ret_y
 }
 
