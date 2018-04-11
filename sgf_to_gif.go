@@ -423,13 +423,16 @@ func main() {
 	out_gif.Image = append(out_gif.Image, first_frame(board.Size(), x_offset, y_offset, image_width, image_height))
 
 	for {
+
 		board.UpdateFromNode(node)
 
-		if first_update == false {
+		if first_update == false {						// First time here, prev_board gets kept as an empty board
 			prev_board.UpdateFromNode(node.Parent)
+		} else {
+			first_update = false
 		}
 
-		frame := frame_from_board(board, nil)
+		frame := frame_from_board(board, prev_board)
 
 		frame.Rect.Min.X += x_offset
 		frame.Rect.Min.Y += y_offset
@@ -502,6 +505,8 @@ func first_frame(board_size, x_offset, y_offset, image_width, image_height int) 
 		}
 	}
 
+	// Hoshi...
+
 	for x := 0; x < board_size; x++ {
 		for y := 0; y < board_size; y++ {
 			if is_hoshi(x, y, board_size) {
@@ -518,7 +523,21 @@ func frame_from_board(board *Board, previous *Board) *image.Paletted {
 
 	full_frame_size := board.Size() * STONE_WIDTH		// No margins / offsets etc
 
-	rect := image.Rect(0, 0, full_frame_size, full_frame_size)
+	var logical_left, logical_top, logical_right, logical_bottom int
+
+	if previous == nil {
+		logical_left, logical_top, logical_right, logical_bottom = 0, 0, board.Size() - 1, board.Size() - 1
+	} else {
+		logical_left, logical_top, logical_right, logical_bottom = relevant_region(board, previous)
+	}
+
+	rect := image.Rect(
+		logical_left * STONE_WIDTH,
+		logical_top * STONE_WIDTH,
+		(logical_right + 1) * STONE_WIDTH,
+		(logical_bottom + 1) * STONE_WIDTH,
+	)
+
 	c := image.NewPaletted(rect, PALETTE)
 
 	// Background...
@@ -581,6 +600,35 @@ func frame_from_board(board *Board, previous *Board) *image.Paletted {
 	}
 
 	return c
+}
+
+func relevant_region(one, two *Board) (int, int, int, int) {
+
+	// Returns an INCLUSIVE, logical rectangle.
+	// For most nodes (with a single move and no captures),
+	// it will be the case that top == bottom and left == right.
+
+	left := one.Size()		// i.e. out of bounds
+	top := one.Size()
+	right := -1
+	bottom := -1
+
+	for x := 0; x < one.Size(); x++ {
+		for y := 0; y < one.Size(); y++ {
+			if one.State[x][y] != two.State[x][y] {
+				if left > x { left = x }
+				if top > y { top = y }
+				if right < x { right = x }
+				if bottom < y { bottom = y }
+			}
+		}
+	}
+
+	if left > right || top > bottom {		// Force the caller to make some non-zero sized frame.
+		return 0, 0, 0, 0
+	}
+
+	return left, top, right, bottom
 }
 
 func is_hoshi(x, y, size int) bool {
