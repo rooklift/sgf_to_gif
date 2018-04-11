@@ -403,23 +403,53 @@ func main() {
 	if size <= 0 { size = 19 }
 
 	board := NewBoard(size)
+	prev_board := NewBoard(size)
+	first_update := true
 
 	node := root
 
-	var out_gif gif.GIF
+	image_width := MARGIN + board.Size() * STONE_WIDTH + MARGIN
+	image_height := MARGIN + board.Size() * STONE_WIDTH + MARGIN
+
+	config := image.Config{
+		Width: image_width,
+		Height: image_height,
+	}
+
+	x_offset := MARGIN		// Where the changeable part
+	y_offset := MARGIN		// actually starts in the image.
+
+	out_gif := gif.GIF{Config: config}
+	out_gif.Image = append(out_gif.Image, first_frame(board.Size(), x_offset, y_offset, image_width, image_height))
 
 	for {
 		board.UpdateFromNode(node)
 
-		frame := frame_from_board(board)
+		if first_update == false {
+			prev_board.UpdateFromNode(node.Parent)
+		}
+
+		frame := frame_from_board(board, nil)
+
+		frame.Rect.Min.X += x_offset
+		frame.Rect.Min.Y += y_offset
+		frame.Rect.Max.X += x_offset
+		frame.Rect.Max.Y += y_offset
+
 		out_gif.Image = append(out_gif.Image, frame)
-		out_gif.Delay = append(out_gif.Delay, DELAY)
 
 		if len(node.Children) > 0 {
 			node = node.Children[0]
 		} else {
 			break
 		}
+	}
+
+	// Fix up some stuff and save...
+
+	for i := 0; i < len(out_gif.Image); i++ {
+		out_gif.Delay = append(out_gif.Delay, DELAY)
+		out_gif.Disposal = append(out_gif.Disposal, gif.DisposalNone)
 	}
 
 	out_gif.Delay[len(out_gif.Delay) - 1] = FINAL_DELAY
@@ -435,17 +465,66 @@ func main() {
 	save_gif(filename, &out_gif)
 }
 
-func frame_from_board(board *Board) *image.Paletted {
+func first_frame(board_size, x_offset, y_offset, image_width, image_height int) *image.Paletted {
 
-	size := (board.Size() * STONE_WIDTH) + (MARGIN * 2)
+	// The first frame must be the size of the whole image.
 
-	rect := image.Rect(0, 0, size, size)
+	rect := image.Rect(0, 0, image_width, image_height)
 	c := image.NewPaletted(rect, PALETTE)
 
 	// Background...
 
-	for i := 0; i < size; i++ {
-		for j := 0; j < size; j++ {
+	for i := 0; i < image_width; i++ {
+		for j := 0; j < image_height; j++ {
+			c.SetColorIndex(i, j, BG)
+		}
+	}
+
+	// Vertical lines...
+
+	for x := 0; x < board_size; x++ {
+		x1, y1 := image_xy(x, 0)
+		_, y2 := image_xy(x, board_size - 1)
+
+		for j := y1; j <= y2; j++ {
+			c.SetColorIndex(x1 + x_offset, j + y_offset, B)
+		}
+	}
+
+	// Horizontal lines...
+
+	for y := 0; y < board_size; y++ {
+		x1, y1 := image_xy(0, y)
+		x2, _ := image_xy(board_size - 1, y)
+
+		for i := x1; i <= x2; i++ {
+			c.SetColorIndex(i + x_offset, y1 + y_offset, B)
+		}
+	}
+
+	for x := 0; x < board_size; x++ {
+		for y := 0; y < board_size; y++ {
+			if is_hoshi(x, y, board_size) {
+				x1, y1 := image_xy(x, y)
+				draw_hoshi(c, B, x1 + x_offset, y1 + y_offset)
+			}
+		}
+	}
+
+	return c
+}
+
+func frame_from_board(board *Board, previous *Board) *image.Paletted {
+
+	full_frame_size := board.Size() * STONE_WIDTH		// No margins / offsets etc
+
+	rect := image.Rect(0, 0, full_frame_size, full_frame_size)
+	c := image.NewPaletted(rect, PALETTE)
+
+	// Background...
+
+	for i := 0; i < full_frame_size; i++ {
+		for j := 0; j < full_frame_size; j++ {
 			c.SetColorIndex(i, j, BG)
 		}
 	}
@@ -525,8 +604,11 @@ func is_hoshi(x, y, size int) bool {
 }
 
 func image_xy(x, y int) (int, int) {
-	ret_x := x * STONE_WIDTH + MARGIN + (STONE_WIDTH / 2)
-	ret_y := y * STONE_WIDTH + MARGIN + (STONE_WIDTH / 2)
+
+	// Assumes the image has no margins or anything. This is fine.
+
+	ret_x := (x * STONE_WIDTH) + (STONE_WIDTH / 2)
+	ret_y := (y * STONE_WIDTH) + (STONE_WIDTH / 2)
 	return ret_x, ret_y
 }
 
