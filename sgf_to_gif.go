@@ -300,9 +300,8 @@ func load_sgf_tree(sgf string, parent_of_local_root *Node) (*Node, int) {
 	var key string
 	var keycomplete bool
 	var chars_to_skip int
-	var i int
 
-	for i = 0; i < len(sgf); i++ {
+	for i := 0; i < len(sgf); i++ {
 
 		c := sgf[i]
 
@@ -342,7 +341,7 @@ func load_sgf_tree(sgf string, parent_of_local_root *Node) (*Node, int) {
 				if root == nil {
 					panic("load_sgf_tree: root == nil after: else if c == ')'")
 				}
-				return root, i + 1
+				return root, i + 1		// Return characters read.
 			} else if c == ';' {
 				if node == nil {
 					newnode := NewNode(parent_of_local_root)
@@ -368,7 +367,7 @@ func load_sgf_tree(sgf string, parent_of_local_root *Node) (*Node, int) {
 		panic("load_sgf_tree: root == nil at function end")
 	}
 
-	return root, i		// Return characters read.
+	return root, len(sgf)				// Return characters read.
 }
 
 func LoadSGF(sgf string) *Node {
