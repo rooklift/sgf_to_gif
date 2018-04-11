@@ -33,6 +33,11 @@ func init() {
 	flag.IntVar(&CONFIG.FinalDelay, "f", 400, "final delay")
 	flag.BoolVar(&CONFIG.NoCoords, "c", false, "disable coordinates")
 	flag.Parse()
+
+	if CONFIG.StoneWidth < 4 { CONFIG.StoneWidth = 4 }
+	if CONFIG.StoneWidth > 64 { CONFIG.StoneWidth = 64 }
+	if CONFIG.Margin < 0 { CONFIG.Margin = 0 }
+	if CONFIG.Margin > 256 { CONFIG.Margin = 256 }
 }
 
 var PALETTE = []color.Color{			// These should be in the same order as the constants below...
