@@ -470,6 +470,14 @@ func main() {
 
 func draw_empty_board(c *image.Paletted, board_size, x_offset, y_offset int) {
 
+	// Background...
+
+	for i := c.Rect.Min.X; i < c.Rect.Max.X; i++ {
+		for j := c.Rect.Min.Y; j < c.Rect.Max.Y; j++ {
+			c.SetColorIndex(i, j, BG)
+		}
+	}
+
 	// Vertical lines...
 
 	for x := 0; x < board_size; x++ {
@@ -510,17 +518,7 @@ func first_frame(board_size, x_offset, y_offset, image_width, image_height int) 
 
 	rect := image.Rect(0, 0, image_width, image_height)
 	c := image.NewPaletted(rect, PALETTE)
-
-	// Background...
-
-	for i := 0; i < image_width; i++ {
-		for j := 0; j < image_height; j++ {
-			c.SetColorIndex(i, j, BG)
-		}
-	}
-
 	draw_empty_board(c, board_size, x_offset, y_offset)
-
 	return c
 }
 
