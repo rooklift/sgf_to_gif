@@ -528,7 +528,8 @@ func main() {
 		}
 
 		// So we will re-enter the main loop to do a new file (because we're splitting).
-		// Therefore back up one. It's OK for the boards to not change here.
+		// Therefore back up one so that the board doesn't change. Rather, we start the new
+		// file in the same position as the last frame of the old file.
 
 		if node.Parent != nil {
 			node = node.Parent
