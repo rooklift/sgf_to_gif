@@ -127,14 +127,14 @@ func (self *Node) GetValue(key string) (value string, ok bool) {
 func (self *Node) MoveCoords(size int) (x, y int, colour Colour, ok bool) {
 
 	for _, foo := range self.Props["B"] {
-		point, ok := PointFromString(foo, size)
+		point, ok := point_from_string(foo, size)
 		if ok {
 			return point.X, point.Y, BLACK, true
 		}
 	}
 
 	for _, foo := range self.Props["W"] {
-		point, ok := PointFromString(foo, size)
+		point, ok := point_from_string(foo, size)
 		if ok {
 			return point.X, point.Y, WHITE, true
 		}
@@ -179,7 +179,7 @@ func (self *Board) PlayMove(colour Colour, x, y int) {
 
 	self.State[x][y] = colour
 
-	for _, point := range AdjacentPoints(x, y, self.Size()) {
+	for _, point := range adjacent_points(x, y, self.Size()) {
 		if self.State[point.X][point.Y] == opponent {
 			if self.GroupHasLiberties(point.X, point.Y) == false {
 				self.DestroyGroup(point.X, point.Y)
@@ -206,7 +206,7 @@ func (self *Board) group_has_liberties(x, y int, touched map[Point]bool) bool {
 		panic("group_has_liberties: colour != BLACK && colour != WHITE")
 	}
 
-	for _, point := range AdjacentPoints(x, y, self.Size()) {
+	for _, point := range adjacent_points(x, y, self.Size()) {
 		if self.State[point.X][point.Y] == EMPTY {
 			return true
 		} else if self.State[point.X][point.Y] == colour {
@@ -230,7 +230,7 @@ func (self *Board) DestroyGroup(x, y int) {
 
 	self.State[x][y] = EMPTY
 
-	for _, point := range AdjacentPoints(x, y, self.Size()) {
+	for _, point := range adjacent_points(x, y, self.Size()) {
 		if self.State[point.X][point.Y] == colour {
 			self.DestroyGroup(point.X, point.Y)
 		}
@@ -244,30 +244,30 @@ func (self *Board) UpdateFromNode(node *Node) int {
 	// Add stones: AB / AW / AE
 
 	for _, foo := range node.Props["AB"] {
-		point, ok := PointFromString(foo, self.Size())
+		point, ok := point_from_string(foo, self.Size())
 		if ok { self.State[point.X][point.Y] = BLACK }
 	}
 
 	for _, foo := range node.Props["AW"] {
-		point, ok := PointFromString(foo, self.Size())
+		point, ok := point_from_string(foo, self.Size())
 		if ok { self.State[point.X][point.Y] = WHITE }
 	}
 
 	for _, foo := range node.Props["AE"] {
-		point, ok := PointFromString(foo, self.Size())
+		point, ok := point_from_string(foo, self.Size())
 		if ok { self.State[point.X][point.Y] = EMPTY }
 	}
 
 	// Play move: B / W
 
 	for _, foo := range node.Props["B"] {
-		point, ok := PointFromString(foo, self.Size())
+		point, ok := point_from_string(foo, self.Size())
 		if ok { self.PlayMove(BLACK, point.X, point.Y) }
 		moves_made++	// Includes passes
 	}
 
 	for _, foo := range node.Props["W"] {
-		point, ok := PointFromString(foo, self.Size())
+		point, ok := point_from_string(foo, self.Size())
 		if ok { self.PlayMove(WHITE, point.X, point.Y) }
 		moves_made++	// Includes passes
 	}
@@ -282,7 +282,7 @@ type Point struct {
 	Y	int
 }
 
-func AdjacentPoints(x, y, size int) []Point {
+func adjacent_points(x, y, size int) []Point {
 
 	var ret []Point
 
@@ -304,7 +304,7 @@ func AdjacentPoints(x, y, size int) []Point {
 	return ret
 }
 
-func PointFromString(s string, size int) (Point, bool) {
+func point_from_string(s string, size int) (Point, bool) {
 
 	if len(s) < 2 {
 		return Point{}, false
@@ -407,7 +407,7 @@ func load_sgf_tree(sgf string, parent_of_local_root *Node) (*Node, int) {
 	return root, len(sgf)			// Return characters read.
 }
 
-func LoadSGF(sgf string) *Node {
+func load_sgf(sgf string) *Node {
 
 	sgf = strings.TrimSpace(sgf)
 	if sgf[0] == '(' {				// the load_sgf_tree() function assumes the
@@ -421,6 +421,8 @@ func LoadSGF(sgf string) *Node {
 // ------------------------------------------------
 
 func main() {
+
+	// Error message if no args...
 
 	if len(os.Args) < 2 {
 		fmt.Printf("Usage: %s <options> <filename>\n", filepath.Base(os.Args[0]))
@@ -437,13 +439,17 @@ func main() {
 		return
 	}
 
+	// Load SGF...
+
 	sgf_bytes, err := ioutil.ReadFile(infilename)
 
 	if err != nil {
 		panic(fmt.Sprintf("%v", err))
 	}
 
-	root := LoadSGF(string(sgf_bytes))
+	root := load_sgf(string(sgf_bytes))
+
+	// Find size and make boards...
 
 	size_string, _ := root.GetValue("SZ")
 	size, _ := strconv.Atoi(size_string)
@@ -452,7 +458,7 @@ func main() {
 	board := NewBoard(size)
 	prev_board := NewBoard(size)
 
-	node := root
+	// Calculate full image size...
 
 	image_width := cfg.Margin + (board.Size() * cfg.StoneWidth) + cfg.Margin
 	image_height := cfg.Margin + (board.Size() * cfg.StoneWidth) + cfg.Margin
@@ -470,18 +476,30 @@ func main() {
 	x_offset := cfg.Margin		// Where the changeable part
 	y_offset := cfg.Margin		// actually starts in the image.
 
+	// Main...
+
 	total_moves := 0
 	moves_last_update := 0
 	finished := false
 
+	node := root
+
 	for {
+
+		// Start new GIF...
 
 		out_gif := gif.GIF{Config: gif_config}
 
 		for {
+
+			// Update boards...
+
 			moves_last_update = board.UpdateFromNode(node)
 			total_moves += moves_last_update
 			if node.Parent != nil { prev_board.UpdateFromNode(node.Parent) }
+
+			// Make the canvas (frame) and draw the board...
+			// Much of the time the canvas is some small (changed) area.
 
 			var canvas *image.Paletted
 
@@ -498,6 +516,8 @@ func main() {
 
 			}
 
+			// Move numbers...
+
 			added_move_number := false		// Can be false even if we're generally adding them; e.g. if a pass.
 
 			move_x, move_y, colour, ok := node.MoveCoords(board.Size())
@@ -510,9 +530,13 @@ func main() {
 				added_move_number = true
 			}
 
+			// Add the canvas (frame) to the GIF...
+
 			out_gif.Image = append(out_gif.Image, canvas)
 			out_gif.Delay = append(out_gif.Delay, cfg.Delay)
 			out_gif.Disposal = append(out_gif.Disposal, gif.DisposalNone)
+
+			// Make a new frame to clear the move number, if needed...
 
 			if added_move_number {
 				c := one_stone_canvas(move_x, move_y, x_offset, y_offset)
@@ -522,12 +546,16 @@ func main() {
 				out_gif.Disposal = append(out_gif.Disposal, gif.DisposalNone)
 			}
 
+			// Go to next node...
+
 			if len(node.Children) > 0 {
 				node = node.Children[0]
 			} else {
 				finished = true
 				break
 			}
+
+			// If we're splitting and the right number of moves have happened, end this file...
 
 			if cfg.Splits[total_moves] {
 				delete(cfg.Splits, total_moves)		// Delete from the map so it doesn't trigger again after we back up 1.
