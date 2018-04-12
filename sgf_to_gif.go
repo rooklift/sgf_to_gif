@@ -22,6 +22,7 @@ type Config struct {
 	Delay			int
 	FinalDelay		int
 	NoCoords		bool
+	NoNumbers		bool
 
 	SplitString		string
 	Splits			map[int]bool
@@ -31,11 +32,12 @@ type Config struct {
 var cfg Config
 
 func init() {
-	flag.IntVar(&cfg.StoneWidth, "s", 20, "stone width")
+	flag.IntVar(&cfg.StoneWidth, "s", 22, "stone width")
 	flag.IntVar(&cfg.Margin, "m", 5, "outer margin")
-	flag.IntVar(&cfg.Delay, "d", 40, "delay")
-	flag.IntVar(&cfg.FinalDelay, "f", 400, "final delay")
+	flag.IntVar(&cfg.Delay, "d", 50, "delay")
+	flag.IntVar(&cfg.FinalDelay, "f", 500, "final delay")
 	flag.BoolVar(&cfg.NoCoords, "c", false, "disable coordinates")
+	flag.BoolVar(&cfg.NoNumbers, "n", false, "disable move numbers")
 	flag.StringVar(&cfg.SplitString, "t", "", "split files after these moves (e.g. \"50 100 150\")")
 	flag.Parse()
 
@@ -65,9 +67,17 @@ var PALETTE = []color.Color{			// These should be in the same order as the const
 }
 
 const (									// Indexes for the colours above.
-	BG = iota
+	BG = uint8(iota)
 	B
 	W
+)
+
+type Colour int
+
+const (
+	EMPTY = Colour(iota)
+	BLACK
+	WHITE
 )
 
 // ------------------------------------------------
@@ -114,15 +124,26 @@ func (self *Node) GetValue(key string) (value string, ok bool) {
 	return list[0], true
 }
 
+func (self *Node) MoveCoords(size int) (x, y int, colour Colour, ok bool) {
+
+	for _, foo := range self.Props["B"] {
+		point, ok := PointFromString(foo, size)
+		if ok {
+			return point.X, point.Y, BLACK, true
+		}
+	}
+
+	for _, foo := range self.Props["W"] {
+		point, ok := PointFromString(foo, size)
+		if ok {
+			return point.X, point.Y, WHITE, true
+		}
+	}
+
+	return -1, -1, EMPTY, false
+}
+
 // ------------------------------------------------
-
-type Colour int
-
-const (
-	EMPTY = Colour(iota)
-	BLACK
-	WHITE
-)
 
 type Board struct {
 	State [][]Colour
@@ -477,7 +498,29 @@ func main() {
 
 			}
 
+			added_move_number := false		// Can be false even if we're generally adding them; e.g. if a pass.
+
+			move_x, move_y, colour, ok := node.MoveCoords(board.Size())
+
+			if ok && cfg.NoNumbers == false && (len(out_gif.Image) > 0 || total_moves == 1) {
+				x1, y1 := image_xy(move_x, move_y)
+				cindex := B ; if colour == BLACK { cindex = W }
+				s := fmt.Sprintf("%d", total_moves)
+				draw_text(canvas, cindex, s, x1 + x_offset, y1 + y_offset)
+				added_move_number = true
+			}
+
 			out_gif.Image = append(out_gif.Image, canvas)
+			out_gif.Delay = append(out_gif.Delay, cfg.Delay)
+			out_gif.Disposal = append(out_gif.Disposal, gif.DisposalNone)
+
+			if added_move_number {
+				c := one_stone_canvas(move_x, move_y, x_offset, y_offset)
+				draw_board(c, board, x_offset, y_offset)
+				out_gif.Image = append(out_gif.Image, c)
+				out_gif.Delay = append(out_gif.Delay, 0)
+				out_gif.Disposal = append(out_gif.Disposal, gif.DisposalNone)
+			}
 
 			if len(node.Children) > 0 {
 				node = node.Children[0]
@@ -493,11 +536,6 @@ func main() {
 		}
 
 		// Fix up some stuff and save...
-
-		for i := 0; i < len(out_gif.Image); i++ {
-			out_gif.Delay = append(out_gif.Delay, cfg.Delay)
-			out_gif.Disposal = append(out_gif.Disposal, gif.DisposalNone)
-		}
 
 		out_gif.Delay[len(out_gif.Delay) - 1] = cfg.FinalDelay
 
@@ -612,25 +650,22 @@ func draw_coords(c *image.Paletted, board *Board, x_offset, y_offset int) {
 	letters := "ABCDEFGHJKLMNOPQRSTUVWXYZ"
 
 	for x := 0; x < board.Size(); x++ {
-
 		x1, y1 := image_xy(x, board.Size())
 		s := string(letters[x])
-		points := chars.Points(s)
-
-		for _, point := range points {
-			c.SetColorIndex(x1 + point.X + x_offset, y1 + point.Y + y_offset, B)
-		}
+		draw_text(c, B, s, x1 + x_offset, y1 + y_offset)
 	}
 
 	for y := 0; y < board.Size(); y++ {
-
 		x1, y1 := image_xy(board.Size(), board.Size() - y - 1)
 		s := fmt.Sprintf("%d", y + 1)
-		points := chars.Points(s)
+		draw_text(c, B, s, x1 + x_offset, y1 + y_offset)
+	}
+}
 
-		for _, point := range points {
-			c.SetColorIndex(x1 + point.X + x_offset, y1 + point.Y + y_offset, B)
-		}
+func draw_text(c *image.Paletted, cindex uint8, s string, x, y int) {
+	points := chars.Points(s)
+	for _, point := range points {
+		c.SetColorIndex(x + point.X, y + point.Y, cindex)
 	}
 }
 
@@ -652,6 +687,16 @@ func partial_canvas(board *Board, previous *Board, x_offset, y_offset int) *imag
 		(logical_bottom + 1) * cfg.StoneWidth + y_offset,
 	)
 
+	return image.NewPaletted(rect, PALETTE)
+}
+
+func one_stone_canvas(move_x, move_y, x_offset, y_offset int) *image.Paletted {
+	rect := image.Rect(
+		move_x * cfg.StoneWidth + x_offset,
+		move_y * cfg.StoneWidth + y_offset,
+		(move_x + 1) * cfg.StoneWidth + x_offset,
+		(move_y + 1) * cfg.StoneWidth + y_offset,
+	)
 	return image.NewPaletted(rect, PALETTE)
 }
 
