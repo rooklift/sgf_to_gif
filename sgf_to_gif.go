@@ -24,20 +24,20 @@ type Config struct {
 	NoCoords	bool
 }
 
-var CONFIG Config
+var cfg Config
 
 func init() {
-	flag.IntVar(&CONFIG.StoneWidth, "s", 20, "stone width")
-	flag.IntVar(&CONFIG.Margin, "m", 5, "outer margin")
-	flag.IntVar(&CONFIG.Delay, "d", 40, "delay")
-	flag.IntVar(&CONFIG.FinalDelay, "f", 400, "final delay")
-	flag.BoolVar(&CONFIG.NoCoords, "c", false, "disable coordinates")
+	flag.IntVar(&cfg.StoneWidth, "s", 20, "stone width")
+	flag.IntVar(&cfg.Margin, "m", 5, "outer margin")
+	flag.IntVar(&cfg.Delay, "d", 40, "delay")
+	flag.IntVar(&cfg.FinalDelay, "f", 400, "final delay")
+	flag.BoolVar(&cfg.NoCoords, "c", false, "disable coordinates")
 	flag.Parse()
 
-	if CONFIG.StoneWidth < 4 { CONFIG.StoneWidth = 4 }
-	if CONFIG.StoneWidth > 64 { CONFIG.StoneWidth = 64 }
-	if CONFIG.Margin < 0 { CONFIG.Margin = 0 }
-	if CONFIG.Margin > 256 { CONFIG.Margin = 256 }
+	if cfg.StoneWidth < 4 { cfg.StoneWidth = 4 }
+	if cfg.StoneWidth > 64 { cfg.StoneWidth = 64 }
+	if cfg.Margin < 0 { cfg.Margin = 0 }
+	if cfg.Margin > 256 { cfg.Margin = 256 }
 }
 
 var PALETTE = []color.Color{			// These should be in the same order as the constants below...
@@ -409,12 +409,12 @@ func main() {
 
 	node := root
 
-	image_width := CONFIG.Margin + (board.Size() * CONFIG.StoneWidth) + CONFIG.Margin
-	image_height := CONFIG.Margin + (board.Size() * CONFIG.StoneWidth) + CONFIG.Margin
+	image_width := cfg.Margin + (board.Size() * cfg.StoneWidth) + cfg.Margin
+	image_height := cfg.Margin + (board.Size() * cfg.StoneWidth) + cfg.Margin
 
-	if CONFIG.NoCoords == false {
-		image_height += CONFIG.StoneWidth
-		image_width += CONFIG.StoneWidth
+	if cfg.NoCoords == false {
+		image_height += cfg.StoneWidth
+		image_width += cfg.StoneWidth
 	}
 
 	gif_config := image.Config{
@@ -422,8 +422,8 @@ func main() {
 		Height: image_height,
 	}
 
-	x_offset := CONFIG.Margin		// Where the changeable part
-	y_offset := CONFIG.Margin		// actually starts in the image.
+	x_offset := cfg.Margin		// Where the changeable part
+	y_offset := cfg.Margin		// actually starts in the image.
 
 	out_gif := gif.GIF{Config: gif_config}
 
@@ -436,7 +436,7 @@ func main() {
 
 			canvas = full_canvas(image_width, image_height)
 			draw_board(canvas, board, x_offset, y_offset)
-			if CONFIG.NoCoords == false { draw_coords(canvas, board, x_offset, y_offset) }
+			if cfg.NoCoords == false { draw_coords(canvas, board, x_offset, y_offset) }
 
 		} else {
 
@@ -458,11 +458,11 @@ func main() {
 	// Fix up some stuff and save...
 
 	for i := 0; i < len(out_gif.Image); i++ {
-		out_gif.Delay = append(out_gif.Delay, CONFIG.Delay)
+		out_gif.Delay = append(out_gif.Delay, cfg.Delay)
 		out_gif.Disposal = append(out_gif.Disposal, gif.DisposalNone)
 	}
 
-	out_gif.Delay[len(out_gif.Delay) - 1] = CONFIG.FinalDelay
+	out_gif.Delay[len(out_gif.Delay) - 1] = cfg.FinalDelay
 
 	var filename string
 
@@ -530,12 +530,12 @@ func draw_board(c *image.Paletted, board *Board, x_offset, y_offset int) {
 
 			if board.State[x][y] == BLACK {
 
-				fcircle(c, B, x1 + x_offset, y1 + y_offset, CONFIG.StoneWidth / 2)
+				fcircle(c, B, x1 + x_offset, y1 + y_offset, cfg.StoneWidth / 2)
 
 			} else if board.State[x][y] == WHITE {
 
-				fcircle(c, W, x1 + x_offset, y1 + y_offset, CONFIG.StoneWidth / 2)
-				circle(c, B, x1 + x_offset, y1 + y_offset, CONFIG.StoneWidth / 2)
+				fcircle(c, W, x1 + x_offset, y1 + y_offset, cfg.StoneWidth / 2)
+				circle(c, B, x1 + x_offset, y1 + y_offset, cfg.StoneWidth / 2)
 
 			}
 		}
@@ -583,10 +583,10 @@ func partial_canvas(board *Board, previous *Board, x_offset, y_offset int) *imag
 	logical_left, logical_top, logical_right, logical_bottom := relevant_region(board, previous)
 
 	rect := image.Rect(
-		logical_left * CONFIG.StoneWidth + x_offset,
-		logical_top * CONFIG.StoneWidth + y_offset,
-		(logical_right + 1) * CONFIG.StoneWidth + x_offset,
-		(logical_bottom + 1) * CONFIG.StoneWidth + y_offset,
+		logical_left * cfg.StoneWidth + x_offset,
+		logical_top * cfg.StoneWidth + y_offset,
+		(logical_right + 1) * cfg.StoneWidth + x_offset,
+		(logical_bottom + 1) * cfg.StoneWidth + y_offset,
 	)
 
 	return image.NewPaletted(rect, PALETTE)
@@ -645,8 +645,8 @@ func image_xy(x, y int) (int, int) {
 
 	// Result has no margins or anything. This is fine.
 
-	ret_x := (x * CONFIG.StoneWidth) + (CONFIG.StoneWidth / 2)
-	ret_y := (y * CONFIG.StoneWidth) + (CONFIG.StoneWidth / 2)
+	ret_x := (x * cfg.StoneWidth) + (cfg.StoneWidth / 2)
+	ret_y := (y * cfg.StoneWidth) + (cfg.StoneWidth / 2)
 	return ret_x, ret_y
 }
 
