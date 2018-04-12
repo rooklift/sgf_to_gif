@@ -17,11 +17,15 @@ import (
 )
 
 type Config struct {
-	StoneWidth	int
-	Margin		int
-	Delay		int
-	FinalDelay	int
-	NoCoords	bool
+	StoneWidth		int
+	Margin			int
+	Delay			int
+	FinalDelay		int
+	NoCoords		bool
+
+	SplitString		string
+	Splits			map[int]bool
+	Splitting		bool
 }
 
 var cfg Config
@@ -32,12 +36,26 @@ func init() {
 	flag.IntVar(&cfg.Delay, "d", 40, "delay")
 	flag.IntVar(&cfg.FinalDelay, "f", 400, "final delay")
 	flag.BoolVar(&cfg.NoCoords, "c", false, "disable coordinates")
+	flag.StringVar(&cfg.SplitString, "t", "", "split files after these moves (e.g. \"50 100 150\")")
 	flag.Parse()
 
 	if cfg.StoneWidth < 4 { cfg.StoneWidth = 4 }
 	if cfg.StoneWidth > 64 { cfg.StoneWidth = 64 }
 	if cfg.Margin < 0 { cfg.Margin = 0 }
 	if cfg.Margin > 256 { cfg.Margin = 256 }
+
+	cfg.Splits = make(map[int]bool)
+
+	if cfg.SplitString != "" {
+		parts := strings.Fields(cfg.SplitString)
+		for _, s := range parts {
+			n, _ := strconv.Atoi(s)
+			if n > 0 {
+				cfg.Splits[n] = true
+				cfg.Splitting = true
+			}
+		}
+	}
 }
 
 var PALETTE = []color.Color{			// These should be in the same order as the constants below...
@@ -198,7 +216,9 @@ func (self *Board) DestroyGroup(x, y int) {
 	}
 }
 
-func (self *Board) UpdateFromNode(node *Node) {
+func (self *Board) UpdateFromNode(node *Node) int {
+
+	moves_made := 0
 
 	// Add stones: AB / AW / AE
 
@@ -222,12 +242,16 @@ func (self *Board) UpdateFromNode(node *Node) {
 	for _, foo := range node.Props["B"] {
 		point, ok := PointFromString(foo, self.Size())
 		if ok { self.PlayMove(BLACK, point.X, point.Y) }
+		moves_made++	// Includes passes
 	}
 
 	for _, foo := range node.Props["W"] {
 		point, ok := PointFromString(foo, self.Size())
 		if ok { self.PlayMove(WHITE, point.X, point.Y) }
+		moves_made++	// Includes passes
 	}
+
+	return moves_made
 }
 
 // ------------------------------------------------
@@ -425,54 +449,92 @@ func main() {
 	x_offset := cfg.Margin		// Where the changeable part
 	y_offset := cfg.Margin		// actually starts in the image.
 
-	out_gif := gif.GIF{Config: gif_config}
+	total_moves := 0
+	moves_last_update := 0
+	finished := false
 
 	for {
-		board.UpdateFromNode(node)
 
-		var canvas *image.Paletted
+		out_gif := gif.GIF{Config: gif_config}
 
-		if len(out_gif.Image) == 0 {
+		for {
+			moves_last_update = board.UpdateFromNode(node)
+			total_moves += moves_last_update
+			if node.Parent != nil { prev_board.UpdateFromNode(node.Parent) }
 
-			canvas = full_canvas(image_width, image_height)
-			draw_board(canvas, board, x_offset, y_offset)
-			if cfg.NoCoords == false { draw_coords(canvas, board, x_offset, y_offset) }
+			var canvas *image.Paletted
+
+			if len(out_gif.Image) == 0 {
+
+				canvas = full_canvas(image_width, image_height)
+				draw_board(canvas, board, x_offset, y_offset)
+				if cfg.NoCoords == false { draw_coords(canvas, board, x_offset, y_offset) }
+
+			} else {
+
+				canvas = partial_canvas(board, prev_board, x_offset, y_offset)
+				draw_board(canvas, board, x_offset, y_offset)
+
+			}
+
+			out_gif.Image = append(out_gif.Image, canvas)
+
+			if len(node.Children) > 0 {
+				node = node.Children[0]
+			} else {
+				finished = true
+				break
+			}
+
+			if cfg.Splits[total_moves] {
+				delete(cfg.Splits, total_moves)		// Delete from the map so it doesn't trigger again after we back up 1.
+				break
+			}
+		}
+
+		// Fix up some stuff and save...
+
+		for i := 0; i < len(out_gif.Image); i++ {
+			out_gif.Delay = append(out_gif.Delay, cfg.Delay)
+			out_gif.Disposal = append(out_gif.Disposal, gif.DisposalNone)
+		}
+
+		out_gif.Delay[len(out_gif.Delay) - 1] = cfg.FinalDelay
+
+		var filename string
+
+		if cfg.Splitting {
+
+			if len(infilename) > 4 && strings.HasSuffix(infilename, ".sgf") {
+				filename = infilename[:len(infilename) - 4] + fmt.Sprintf(".%d.gif", total_moves)
+			} else {
+				filename = infilename + fmt.Sprintf(".%d.gif", total_moves)
+			}
 
 		} else {
 
-			prev_board.UpdateFromNode(node.Parent)
-			canvas = partial_canvas(board, prev_board, x_offset, y_offset)
-			draw_board(canvas, board, x_offset, y_offset)
+			if len(infilename) > 4 && strings.HasSuffix(infilename, ".sgf") {
+				filename = infilename[:len(infilename) - 4] + ".gif"
+			} else {
+				filename = infilename + ".gif"
+			}
 
 		}
 
-		out_gif.Image = append(out_gif.Image, canvas)
+		save_gif(filename, &out_gif)
 
-		if len(node.Children) > 0 {
-			node = node.Children[0]
-		} else {
+		if finished {
 			break
 		}
+
+		// So we will re-enter the main loop to do a new file (because we're splitting).
+		// Therefore back up one. It's OK for the boards to not change here.
+
+		if node.Parent != nil {
+			node = node.Parent
+			total_moves -= moves_last_update
+		}
 	}
-
-	// Fix up some stuff and save...
-
-	for i := 0; i < len(out_gif.Image); i++ {
-		out_gif.Delay = append(out_gif.Delay, cfg.Delay)
-		out_gif.Disposal = append(out_gif.Disposal, gif.DisposalNone)
-	}
-
-	out_gif.Delay[len(out_gif.Delay) - 1] = cfg.FinalDelay
-
-	var filename string
-
-	if len(infilename) > 4 && strings.HasSuffix(infilename, ".sgf") {
-		filename = infilename[:len(infilename) - 4] + ".gif"
-	} else {
-		filename = infilename + ".gif"
-	}
-
-	save_gif(filename, &out_gif)
 }
 
 func draw_board(c *image.Paletted, board *Board, x_offset, y_offset int) {
