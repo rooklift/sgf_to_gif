@@ -324,7 +324,7 @@ func point_from_string(s string, size int) (Point, bool) {
 
 // ------------------------------------------------
 
-func load_sgf_tree(sgf string, parent_of_local_root *Node) (*Node, int) {
+func load_sgf_tree(sgf string, parent_of_local_root *Node) (*Node, int, error) {
 
 	// FIXME: this is not unicode aware. Potential problems exist
 	// if a unicode code point contains a meaningful character.
@@ -338,6 +338,8 @@ func load_sgf_tree(sgf string, parent_of_local_root *Node) (*Node, int) {
 	var keycomplete bool
 	var chars_to_skip int
 
+	var err error
+
 	for i := 0; i < len(sgf); i++ {
 
 		c := sgf[i]
@@ -350,13 +352,16 @@ func load_sgf_tree(sgf string, parent_of_local_root *Node) (*Node, int) {
 		if inside {
 
 			if c == '\\' {
+				if len(sgf) <= i + 1 {
+					return nil, 0, fmt.Errorf("load_sgf_tree: escape character at end of input")
+				}
 				value += string('\\')
-				value += string(sgf[i + 1])		// FIXME: can panic on bad SGF
+				value += string(sgf[i + 1])
 				chars_to_skip = 1
 			} else if c == ']' {
 				inside = false
 				if node == nil {
-					panic("load_sgf_tree: node == nil after: else if c == ']'")
+					return nil, 0, fmt.Errorf("load_sgf_tree: node == nil after: else if c == ']'")
 				}
 				node.AddValue(key, value)
 			} else {
@@ -371,14 +376,17 @@ func load_sgf_tree(sgf string, parent_of_local_root *Node) (*Node, int) {
 				keycomplete = true
 			} else if c == '(' {
 				if node == nil {
-					panic("load_sgf_tree: node == nil after: else if c == '('")
+					return nil, 0, fmt.Errorf("load_sgf_tree: node == nil after: else if c == '('")
 				}
-				_, chars_to_skip = load_sgf_tree(sgf[i + 1:], node)
+				_, chars_to_skip, err = load_sgf_tree(sgf[i + 1:], node)
+				if err != nil {
+					return nil, 0, err
+				}
 			} else if c == ')' {
 				if root == nil {
-					panic("load_sgf_tree: root == nil after: else if c == ')'")
+					return nil, 0, fmt.Errorf("load_sgf_tree: root == nil after: else if c == ')'")
 				}
-				return root, i + 1		// Return characters read.
+				return root, i + 1, nil		// Return characters read.
 			} else if c == ';' {
 				if node == nil {
 					newnode := NewNode(parent_of_local_root)
@@ -401,21 +409,21 @@ func load_sgf_tree(sgf string, parent_of_local_root *Node) (*Node, int) {
 	}
 
 	if root == nil {
-		panic("load_sgf_tree: root == nil at function end")
+		return nil, 0, fmt.Errorf("load_sgf_tree: root == nil at function end")
 	}
 
-	return root, len(sgf)			// Return characters read.
+	return root, len(sgf), nil		// Return characters read.
 }
 
-func load_sgf(sgf string) *Node {
+func load_sgf(sgf string) (*Node, error) {
 
 	sgf = strings.TrimSpace(sgf)
 	if sgf[0] == '(' {				// the load_sgf_tree() function assumes the
 		sgf = sgf[1:]				// leading "(" has already been discarded.
 	}
 
-	root, _ := load_sgf_tree(sgf, nil)
-	return root
+	root, _, err := load_sgf_tree(sgf, nil)
+	return root, err
 }
 
 // ------------------------------------------------
@@ -433,21 +441,27 @@ func main() {
 
 	infilename := os.Args[len(os.Args) - 1]
 
-	if _, err := os.Stat(infilename); err != nil {
-		fmt.Printf("File %s doesn't exist.\n", infilename)
-		fmt.Printf("Usage: %s <options> <filename>\n", filepath.Base(os.Args[0]))
-		return
+	err := handle_file(infilename)
+	if err != nil {
+		fmt.Printf("%v: %v\n", infilename, err)
 	}
+}
+
+func handle_file(infilename string) error {
 
 	// Load SGF...
 
 	sgf_bytes, err := ioutil.ReadFile(infilename)
 
 	if err != nil {
-		panic(fmt.Sprintf("%v", err))
+		return err
 	}
 
-	root := load_sgf(string(sgf_bytes))
+	root, err := load_sgf(string(sgf_bytes))
+
+	if err != nil {
+		return err
+	}
 
 	// Find size and make boards...
 
@@ -587,7 +601,10 @@ func main() {
 
 		}
 
-		save_gif(filename, &out_gif)
+		err := save_gif(filename, &out_gif)
+		if err != nil {
+			return err
+		}
 
 		if finished {
 			break
@@ -602,6 +619,8 @@ func main() {
 			total_moves -= moves_last_update
 		}
 	}
+
+	return nil
 }
 
 func draw_board(c *image.Paletted, board *Board, x_offset, y_offset int) {
@@ -786,15 +805,16 @@ func image_xy(x, y int) (int, int) {
 	return ret_x, ret_y
 }
 
-func save_gif(path string, g *gif.GIF) {
+func save_gif(path string, g *gif.GIF) error {
 	outfile, err := os.Create(path)
 	if err != nil {
-		panic(fmt.Sprintf("%v", err))
+		return err
 	}
 	err = gif.EncodeAll(outfile, g)
 	if err != nil {
-		panic(fmt.Sprintf("%v", err))
+		return err
 	}
+	return nil
 }
 
 func circle(c *image.Paletted, index uint8, x, y, radius int) {
