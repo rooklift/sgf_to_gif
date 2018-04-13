@@ -437,14 +437,43 @@ func main() {
 		return
 	}
 
-	// Filename should be at end of args...
+	// Filename / dirname should be at end of args...
 
-	infilename := os.Args[len(os.Args) - 1]
+	p := os.Args[len(os.Args) - 1]
 
-	err := handle_file(infilename)
+	info, err := os.Stat(p)
 	if err != nil {
-		fmt.Printf("%v: %v\n", infilename, err)
+		fmt.Printf("%v\n", err)
+		return
 	}
+
+	if info.Mode().IsDir() {
+		err = handle_directory(p)
+	} else {
+		err = handle_file(p)
+	}
+
+	if err != nil {
+		fmt.Printf("%v: %v\n", p, err)
+	}
+}
+
+func handle_directory(dirname string) error {
+
+	all, err := ioutil.ReadDir(dirname)
+	if err != nil {
+		return err
+	}
+
+	for _, item := range all {
+		full_path := filepath.Join(dirname, item.Name())
+		err := handle_file(full_path)
+		if err != nil {
+			fmt.Printf("%v: %v\n", item.Name(), err)
+		}
+	}
+
+	return nil
 }
 
 func handle_file(infilename string) error {
@@ -814,6 +843,7 @@ func save_gif(path string, g *gif.GIF) error {
 	if err != nil {
 		return err
 	}
+	outfile.Close()
 	return nil
 }
 
