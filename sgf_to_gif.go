@@ -60,7 +60,7 @@ func init() {
 	}
 }
 
-var PALETTE = []color.Color{			// These should be in the same order as the constants below...
+var PALETTE = color.Palette{			// These should be in the same order as the constants below...
 	color.RGBA{210, 175, 120, 255},
 	color.Black,
 	color.White,
@@ -512,6 +512,7 @@ func handle_file(infilename string) error {
 	}
 
 	gif_config := image.Config{
+		ColorModel: PALETTE,
 		Width: image_width,
 		Height: image_height,
 	}
