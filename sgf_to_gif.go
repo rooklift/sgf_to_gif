@@ -16,6 +16,8 @@ import (
 	"./chars"
 )
 
+// ------------------------------------------------
+
 type Config struct {
 	StoneWidth		int
 	Margin			int
@@ -60,13 +62,15 @@ func init() {
 	}
 }
 
+// ------------------------------------------------
+
 var PALETTE = color.Palette{			// These should be in the same order as the constants below...
 	color.RGBA{210, 175, 120, 255},
 	color.Black,
 	color.White,
 }
 
-const (									// Indexes for the colours above.
+const (									// Indices for the colours above.
 	BG = uint8(iota)
 	B
 	W
@@ -79,6 +83,19 @@ const (
 	BLACK
 	WHITE
 )
+
+type Move struct {
+	OK				bool
+	Pass			bool
+	Colour			Colour
+	X				int
+	Y				int
+}
+
+type Point struct {						// Only used once; we generally just pass 2 int.
+	X				int
+	Y				int
+}
 
 // ------------------------------------------------
 
@@ -124,29 +141,51 @@ func (self *Node) GetValue(key string) (value string, ok bool) {
 	return list[0], true
 }
 
-func (self *Node) MoveCoords(size int) (x, y int, colour Colour, ok bool) {
+func (self *Node) MoveInfo(size int) Move {
 
 	for _, foo := range self.Props["B"] {
-		point, ok := point_from_string(foo, size)
-		if ok {
-			return point.X, point.Y, BLACK, true
+
+		x, y, valid := point_from_string(foo, size)
+
+		ret := Move{
+			OK: true,
+			Colour: BLACK,
+			X: x,
+			Y: y,
 		}
+
+		if valid == false {
+			ret.Pass = true
+		}
+
+		return ret
 	}
 
 	for _, foo := range self.Props["W"] {
-		point, ok := point_from_string(foo, size)
-		if ok {
-			return point.X, point.Y, WHITE, true
+
+		x, y, valid := point_from_string(foo, size)
+
+		ret := Move{
+			OK: true,
+			Colour: WHITE,
+			X: x,
+			Y: y,
 		}
+
+		if valid == false {
+			ret.Pass = true
+		}
+
+		return ret
 	}
 
-	return -1, -1, EMPTY, false
+	return Move{OK: false}
 }
 
 // ------------------------------------------------
 
 type Board struct {
-	State [][]Colour
+	State 			[][]Colour
 }
 
 func NewBoard(size int) *Board {
@@ -244,82 +283,35 @@ func (self *Board) UpdateFromNode(node *Node) int {
 	// Add stones: AB / AW / AE
 
 	for _, foo := range node.Props["AB"] {
-		point, ok := point_from_string(foo, self.Size())
-		if ok { self.State[point.X][point.Y] = BLACK }
+		x, y, ok := point_from_string(foo, self.Size())
+		if ok { self.State[x][y] = BLACK }
 	}
 
 	for _, foo := range node.Props["AW"] {
-		point, ok := point_from_string(foo, self.Size())
-		if ok { self.State[point.X][point.Y] = WHITE }
+		x, y, ok := point_from_string(foo, self.Size())
+		if ok { self.State[x][y] = WHITE }
 	}
 
 	for _, foo := range node.Props["AE"] {
-		point, ok := point_from_string(foo, self.Size())
-		if ok { self.State[point.X][point.Y] = EMPTY }
+		x, y, ok := point_from_string(foo, self.Size())
+		if ok { self.State[x][y] = EMPTY }
 	}
 
 	// Play move: B / W
 
 	for _, foo := range node.Props["B"] {
-		point, ok := point_from_string(foo, self.Size())
-		if ok { self.PlayMove(BLACK, point.X, point.Y) }
+		x, y, ok := point_from_string(foo, self.Size())
+		if ok { self.PlayMove(BLACK, x, y) }
 		moves_made++	// Includes passes
 	}
 
 	for _, foo := range node.Props["W"] {
-		point, ok := point_from_string(foo, self.Size())
-		if ok { self.PlayMove(WHITE, point.X, point.Y) }
+		x, y, ok := point_from_string(foo, self.Size())
+		if ok { self.PlayMove(WHITE, x, y) }
 		moves_made++	// Includes passes
 	}
 
 	return moves_made
-}
-
-// ------------------------------------------------
-
-type Point struct {
-	X	int
-	Y	int
-}
-
-func adjacent_points(x, y, size int) []Point {
-
-	var ret []Point
-
-	possibles := []Point{
-		Point{x - 1, y},
-		Point{x + 1, y},
-		Point{x, y - 1},
-		Point{x, y + 1},
-	}
-
-	for _, point := range possibles {
-		if point.X >= 0 && point.X < size {
-			if point.Y >= 0 && point.Y < size {
-				ret = append(ret, point)
-			}
-		}
-	}
-
-	return ret
-}
-
-func point_from_string(s string, size int) (Point, bool) {
-
-	if len(s) < 2 {
-		return Point{}, false
-	}
-
-	x := int(s[0]) - 97
-	y := int(s[1]) - 97
-
-	ok := false
-
-	if x >= 0 && x < size && y >= 0 && y < size {
-		ok = true
-	}
-
-	return Point{x, y}, ok
 }
 
 // ------------------------------------------------
@@ -562,13 +554,13 @@ func handle_file(infilename string) error {
 
 			// Move numbers...
 
-			added_move_number := false		// Can be false even if we're generally adding them; e.g. if a pass.
+			added_move_number := false		// Can be false even if we're generally adding them; e.g. if a pass / empty node
 
-			move_x, move_y, colour, ok := node.MoveCoords(board.Size())
+			move_info := node.MoveInfo(board.Size())
 
-			if ok && cfg.NoNumbers == false && (len(out_gif.Image) > 0 || total_moves == 1) {
-				x1, y1 := image_xy(move_x, move_y)
-				cindex := B ; if colour == BLACK { cindex = W }
+			if cfg.NoNumbers == false && move_info.OK && move_info.Pass == false && (len(out_gif.Image) > 0 || total_moves == 1) {
+				x1, y1 := image_xy(move_info.X, move_info.Y)
+				cindex := B ; if move_info.Colour == BLACK { cindex = W }
 				s := fmt.Sprintf("%d", total_moves)
 				draw_text(canvas, cindex, s, x1 + x_offset, y1 + y_offset)
 				added_move_number = true
@@ -583,7 +575,7 @@ func handle_file(infilename string) error {
 			// Make a new frame to clear the move number, if needed...
 
 			if added_move_number {
-				c := one_stone_canvas(move_x, move_y, x_offset, y_offset)
+				c := one_stone_canvas(move_info.X, move_info.Y, x_offset, y_offset)
 				draw_board(c, board, x_offset, y_offset)
 				out_gif.Image = append(out_gif.Image, c)
 				out_gif.Delay = append(out_gif.Delay, 0)
@@ -651,6 +643,50 @@ func handle_file(infilename string) error {
 	}
 
 	return nil
+}
+
+// ------------------------------------------------
+
+func adjacent_points(x, y, size int) []Point {
+
+	var ret []Point
+
+	possibles := []Point{
+		Point{x - 1, y},
+		Point{x + 1, y},
+		Point{x, y - 1},
+		Point{x, y + 1},
+	}
+
+	for _, point := range possibles {
+		if point.X >= 0 && point.X < size {
+			if point.Y >= 0 && point.Y < size {
+				ret = append(ret, point)
+			}
+		}
+	}
+
+	return ret
+}
+
+func point_from_string(s string, size int) (x int, y int, ok bool) {
+
+	// If ok == false, that means the move was a pass.
+
+	if len(s) < 2 {
+		return 0, 0, false
+	}
+
+	x = int(s[0]) - 97
+	y = int(s[1]) - 97
+
+	ok = false
+
+	if x >= 0 && x < size && y >= 0 && y < size {
+		ok = true
+	}
+
+	return x, y, ok
 }
 
 func draw_board(c *image.Paletted, board *Board, x_offset, y_offset int) {
@@ -835,19 +871,6 @@ func image_xy(x, y int) (int, int) {
 	return ret_x, ret_y
 }
 
-func save_gif(path string, g *gif.GIF) error {
-	outfile, err := os.Create(path)
-	if err != nil {
-		return err
-	}
-	err = gif.EncodeAll(outfile, g)
-	if err != nil {
-		return err
-	}
-	outfile.Close()
-	return nil
-}
-
 func circle(c *image.Paletted, index uint8, x, y, radius int) {
 
 	// I wrote this algorithm 15 years ago for C and can't remember how it works. But it does.
@@ -911,4 +934,17 @@ func linehorizontal(c *image.Paletted, index uint8, x1, y1, x2 int) {
 	for i := x1; i <= x2; i++ {
 		c.SetColorIndex(i, y1, index)
 	}
+}
+
+func save_gif(path string, g *gif.GIF) error {
+	outfile, err := os.Create(path)
+	if err != nil {
+		return err
+	}
+	err = gif.EncodeAll(outfile, g)
+	if err != nil {
+		return err
+	}
+	outfile.Close()
+	return nil
 }
