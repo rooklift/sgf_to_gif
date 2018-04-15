@@ -143,6 +143,8 @@ func (self *Node) GetValue(key string) (value string, ok bool) {
 
 func (self *Node) MoveInfo(size int) Move {
 
+	// There should only be 1 move in a valid SGF node.
+
 	for _, foo := range self.Props["B"] {
 
 		x, y, valid := point_from_string(foo, size)
