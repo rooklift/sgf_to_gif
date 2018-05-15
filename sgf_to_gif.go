@@ -214,7 +214,7 @@ func (self *Board) PlayMove(colour Colour, x, y int) {
 
 	opponent := BLACK ; if colour == BLACK { opponent = WHITE }
 
-	if x < 0 || x >= self.Size() || y < 0 || y > self.Size() {
+	if x < 0 || x >= self.Size() || y < 0 || y >= self.Size() {
 		panic("PlayMove: off board")
 	}
 
