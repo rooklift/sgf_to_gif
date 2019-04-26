@@ -349,8 +349,8 @@ func load_sgf_tree(sgf string, parent_of_local_root *Node) (*Node, int, error) {
 				if len(sgf) <= i + 1 {
 					return nil, 0, fmt.Errorf("load_sgf_tree: escape character at end of input")
 				}
-				value += string('\\')
-				value += string(sgf[i + 1])
+				value += "\\"
+				value += string([]byte{sgf[i + 1]})
 				chars_to_skip = 1
 			} else if c == ']' {
 				inside = false
@@ -359,7 +359,7 @@ func load_sgf_tree(sgf string, parent_of_local_root *Node) (*Node, int, error) {
 				}
 				node.AddValue(key, value)
 			} else {
-				value += string(c)
+				value += string([]byte{c})
 			}
 
 		} else {
@@ -396,7 +396,7 @@ func load_sgf_tree(sgf string, parent_of_local_root *Node) (*Node, int, error) {
 						key = ""
 						keycomplete = false
 					}
-					key += string(c)
+					key += string([]byte{c})
 				}
 			}
 		}
@@ -766,7 +766,7 @@ func draw_coords(c *image.Paletted, board *Board, x_offset, y_offset int) {
 
 	for x := 0; x < board.Size(); x++ {
 		x1, y1 := image_xy(x, board.Size())
-		s := string(letters[x])
+		s := string([]byte{letters[x]})
 		draw_text(c, B, s, x1 + x_offset, y1 + y_offset)
 	}
 

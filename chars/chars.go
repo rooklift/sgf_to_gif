@@ -392,7 +392,7 @@ func Points(c string) []Point {
 
 	for i := 0; i < len(c); i++ {
 
-		raw, ok := raw_chars[string(c[i])]
+		raw, ok := raw_chars[string([]byte{c[i]})]
 		if ok == false {
 			raw = raw_chars["MISSING"]
 		}
