@@ -679,8 +679,20 @@ func point_from_string(s string, size int) (x int, y int, ok bool) {
 		return 0, 0, false
 	}
 
-	x = int(s[0]) - 97
-	y = int(s[1]) - 97
+	a := int(s[0])
+	b := int(s[1])
+
+	if a <= 'Z' {
+		x = a - 39
+	} else {
+		x = a - 97
+	}
+
+	if b <= 'Z' {
+		y = b - 39
+	} else {
+		y = b - 97
+	}
 
 	ok = false
 
@@ -760,17 +772,15 @@ func draw_board(c *image.Paletted, board *Board, x_offset, y_offset int) {
 
 func draw_coords(c *image.Paletted, board *Board, x_offset, y_offset int) {
 
-	// FIXME: fail gracefully if size > 25
-
 	letters := "ABCDEFGHJKLMNOPQRSTUVWXYZ"
 
-	for x := 0; x < board.Size(); x++ {
+	for x := 0; x < board.Size() && x < 25; x++ {
 		x1, y1 := image_xy(x, board.Size())
 		s := string([]byte{letters[x]})
 		draw_text(c, B, s, x1 + x_offset, y1 + y_offset)
 	}
 
-	for y := 0; y < board.Size(); y++ {
+	for y := 0; y < board.Size() && y < 25; y++ {
 		x1, y1 := image_xy(board.Size(), board.Size() - y - 1)
 		s := fmt.Sprintf("%d", y + 1)
 		draw_text(c, B, s, x1 + x_offset, y1 + y_offset)
