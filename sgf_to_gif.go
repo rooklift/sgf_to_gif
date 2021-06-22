@@ -13,7 +13,7 @@ import (
 	"strconv"
 	"strings"
 
-	"./chars"
+	"sgf_to_gif/chars"
 )
 
 // ------------------------------------------------
