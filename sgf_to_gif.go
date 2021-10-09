@@ -460,8 +460,17 @@ func handle_directory(dirname string) error {
 	}
 
 	for _, item := range all {
-		full_path := filepath.Join(dirname, item.Name())
+
+		basename := item.Name()
+
+		if strings.HasSuffix(strings.ToLower(basename), ".gif") {
+			continue
+		}
+
+		full_path := filepath.Join(dirname, basename)
+
 		err := handle_file(full_path)
+
 		if err != nil {
 			fmt.Printf("%v: %v\n", item.Name(), err)
 		}
