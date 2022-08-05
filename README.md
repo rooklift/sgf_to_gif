@@ -7,8 +7,7 @@
 * Adjustable speed and board size.
 * Stores the animation as a series of changes to keep filesize down.
 * Written in Golang, using standard library only.
-
-Needs compilation. Try `./sgf_to.gif.exe --help` for options.
+* Try `./sgf_to.gif.exe --help` for options.
 
 Note: some anonymous (?) person has created [sgftogif.herokuapp.com](https://sgftogif.herokuapp.com) which you may find convenient.
 
