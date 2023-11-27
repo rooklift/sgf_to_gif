@@ -9,6 +9,4 @@
 * Written in Golang, using standard library only.
 * Try `./sgf_to.gif.exe --help` for options.
 
-Note: some anonymous (?) person has created [sgftogif.herokuapp.com](https://sgftogif.herokuapp.com) which you may find convenient.
-
 ![Example GIF](https://raw.githubusercontent.com/rooklift/sgf_to_gif/master/example.gif)
